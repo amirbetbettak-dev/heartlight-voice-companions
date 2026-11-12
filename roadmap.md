@@ -8,4 +8,4 @@
 - [x] Memory: AI-maintained notes about the user, viewable/clearable in settings
 - [x] Settings: switch persona, view/clear memory, clear conversation, sign out
 - [x] Mobile-first responsive + installable (manifest, icons)
-- [x] Verify end-to-end (sign in, text chat, voice call)
+- [ ] Verify end-to-end (sign in, text chat, voice call) — waits on a real signed-in test with a microphone
