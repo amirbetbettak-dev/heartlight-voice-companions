@@ -85,6 +85,4 @@ export async function clearConversation() {
   const user = await requireUser();
   const { error } = await supabase.from("messages").delete().eq("user_id", user.id);
   if (error) throw error;
-  // Memory notes are derived from the conversation; reset the watermark too.
-  await supabase.from("user_memory").delete().eq("user_id", user.id);
 }

@@ -76,6 +76,9 @@
   --color-face-shell: var(--face-shell);
   --color-face-shell-edge: var(--face-shell-edge);
   --color-face-screen: var(--face-screen);
+  --color-google-surface: var(--google-surface);
+  --color-google-border: var(--google-border);
+  --color-google-text: var(--google-text);
   --font-sans: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -107,6 +110,10 @@
   --face-shell: oklch(0.2 0.018 262);
   --face-shell-edge: oklch(0.3 0.02 262);
   --face-screen: oklch(0.105 0.012 262);
+  /* Google sign-in button dark theme (brand-mandated values). */
+  --google-surface: #131314;
+  --google-border: #8e918f;
+  --google-text: #e3e3e3;
   --gradient-ambient: radial-gradient(70% 55% at 50% 30%, color-mix(in oklab, var(--glow) 16%, transparent), transparent 72%);
   --shadow-glow: 0 0 60px -10px color-mix(in oklab, var(--glow) 55%, transparent);
   --chart-1: oklch(0.646 0.222 41.116);
