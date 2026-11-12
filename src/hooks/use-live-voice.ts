@@ -399,7 +399,14 @@ function createLiveVoice(options: LiveOptions) {
         release();
       };
     } catch (error) {
-      fail(error instanceof Error ? error.message : "دسترسی به میکروفون ممکن نشد.");
+      const denied = error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "NotFoundError");
+      fail(
+        denied
+          ? "برای حرف زدن، اجازه‌ی دسترسی به میکروفون را بدهید."
+          : error instanceof Error
+            ? error.message
+            : "دسترسی به میکروفون ممکن نشد.",
+      );
     }
   }
 
