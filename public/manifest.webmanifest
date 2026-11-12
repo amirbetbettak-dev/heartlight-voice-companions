@@ -1,0 +1,17 @@
+{
+  "name": "همدم — همراه هوشمند",
+  "short_name": "همدم",
+  "description": "همراه هوشمند و همدل برای درد و دل، صوتی و متنی.",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "/talk",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d1017",
+  "theme_color": "#0d1017",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
