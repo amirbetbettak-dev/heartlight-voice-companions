@@ -28,3 +28,10 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+- Voice calls go through `src/lib/live-relay.server.ts` (dispatched from `src/server.ts`, dev via `live-vite-plugin.ts`); the relay verifies the user token from `app.start` before opening a paid session and saves transcripts on close — keeps calls restricted and transcripts server-owned.
+- Text chat (`/api/chat`) and voice share one continuous conversation in `messages`; the server loads history from the database, never trusting client history.
+- Persona prompts, voices and openings live only in `src/lib/personas.ts`; openings must stay under 480 UTF-8 bytes (relay append limit).
+- Long-term memory is one AI-maintained summary per user (`user_memory`), refreshed by `refreshMemory` using `updated_at` as the message watermark.
+- PWA is manifest-only (no service worker) — installability without stale-cache risk.
