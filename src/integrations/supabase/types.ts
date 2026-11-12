@@ -14,7 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          persona_id: string
+          role: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          persona_id: string
+          role: string
+          source?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          persona_id?: string
+          role?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_memory: {
+        Row: {
+          summary: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          summary?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          summary?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          persona_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          persona_id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          persona_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
