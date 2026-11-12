@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
 
 import type { AudioLevels } from "@/hooks/use-audio-levels";
 import type { FaceExpression } from "@/lib/emotion";
@@ -38,7 +38,7 @@ function poseFor(state: FaceState, expression: FaceExpression): Pose {
     thinking: { gazeX: 10, gazeY: -10, upper: 8, smile: 2 },
     speaking: {},
   };
-  return { ...base, ...byExpression[expression], ...byState[state], ...(state === "thinking" ? byState.thinking : {}) };
+  return { ...base, ...byExpression[expression], ...byState[state] };
 }
 
 export function RobotFace({ persona, state, expression, levels, textSpeaking, className, size = "lg" }: Props) {
@@ -101,6 +101,9 @@ export function RobotFace({ persona, state, expression, levels, textSpeaking, cl
   const curve = pose.smile;
   const mouthPath = `M ${left} ${y} Q 150 ${y + curve} ${right} ${y} Q 150 ${y + curve + open * 2} ${left} ${y} Z`;
 
+  const uid = useId().replace(/:/g, "");
+  const glowId = `face-glow-${uid}`;
+  const shellId = `face-shell-${uid}`;
   const showHalo = state === "listening" || state === "speaking" || state === "connecting";
 
   return (
@@ -131,24 +134,24 @@ export function RobotFace({ persona, state, expression, levels, textSpeaking, cl
       )}
       <svg viewBox="0 0 300 300" className="relative h-full w-full drop-shadow-2xl">
         <defs>
-          <filter id="face-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="5" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={shellId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor="var(--face-shell-edge)" />
             <stop offset="1" stopColor="var(--face-shell)" />
           </linearGradient>
         </defs>
         {/* Head shell and screen */}
-        <rect x="18" y="22" width="264" height="256" rx="96" fill="url(#shell)" />
+        <rect x="18" y="22" width="264" height="256" rx="96" fill={`url(#${shellId})`} />
         <rect x="18.5" y="22.5" width="263" height="255" rx="95.5" fill="none" stroke="var(--glow)" strokeOpacity="0.35" />
         <rect x="38" y="44" width="224" height="212" rx="80" fill="var(--face-screen)" />
         {/* Antenna light */}
-        <circle cx="150" cy="30" r="5" fill="var(--glow)" filter="url(#face-glow)" opacity={state === "idle" ? 0.5 : 1} />
+        <circle cx="150" cy="30" r="5" fill="var(--glow)" filter={`url(#${glowId})`} opacity={state === "idle" ? 0.5 : 1} />
 
         {[-1, 1].map((side) => {
           const cx = 150 + side * 52;
@@ -163,7 +166,7 @@ export function RobotFace({ persona, state, expression, levels, textSpeaking, cl
                   height={eye.h}
                   rx={eye.r}
                   fill="var(--glow)"
-                  filter="url(#face-glow)"
+                  filter={`url(#${glowId})`}
                 />
                 <circle cx={-eye.w / 5} cy={-eye.h / 4.5} r={5} fill="var(--face-screen)" opacity="0.35" />
                 {/* Upper lid tilts for empathy / concern */}
@@ -192,7 +195,7 @@ export function RobotFace({ persona, state, expression, levels, textSpeaking, cl
         })}
 
         {state === "thinking" ? (
-          <g fill="var(--glow)" filter="url(#face-glow)">
+          <g fill="var(--glow)" filter={`url(#${glowId})`}>
             {[0, 1, 2].map((index) => (
               <circle
                 key={index}
@@ -211,7 +214,7 @@ export function RobotFace({ persona, state, expression, levels, textSpeaking, cl
             strokeWidth="7"
             strokeLinejoin="round"
             strokeLinecap="round"
-            filter="url(#face-glow)"
+            filter={`url(#${glowId})`}
           />
         )}
         {/* Cheeks when happy */}
