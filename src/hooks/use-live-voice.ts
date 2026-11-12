@@ -32,6 +32,8 @@ export function useLiveVoice(
   options: {
     url?: string;
     onEvent?: (event: LiveEvent) => void | Promise<void>;
+    /** Extra fields for the first `app.start` message (auth token, persona). */
+    getStartPayload?: () => Promise<Record<string, unknown>>;
   } = {},
 ) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -72,6 +74,7 @@ export function useLiveVoice(
     const voice = createLiveVoice({
       url: endpoint.href,
       audio,
+      getStartPayload: () => latest.current.getStartPayload?.() ?? Promise.resolve({}),
       onEvent(event) {
         if (!mounted.current || controller.current !== voice) return;
         if (event.type === "app.connected") {
@@ -90,7 +93,7 @@ export function useLiveVoice(
         } else if (event.type === "app.playback.blocked" || event.type === "app.playback.resumed") {
           setCall((previous) => ({ ...previous, playbackBlocked: event.type === "app.playback.blocked" }));
         } else if (["app.error", "gateway.error", "error"].includes(event.type)) {
-          setCall((previous) => ({ ...previous, error: event.error?.message ?? "Voice request failed." }));
+          setCall((previous) => ({ ...previous, error: event.error?.message ?? "تماس صوتی با خطا روبه‌رو شد." }));
         }
         try {
           void Promise.resolve(latest.current.onEvent?.(event)).catch((error) => {
@@ -123,6 +126,7 @@ type LiveOptions = {
   url: string;
   audio: HTMLAudioElement;
   onEvent: (event: LiveEvent) => void;
+  getStartPayload: () => Promise<Record<string, unknown>>;
 };
 
 function createLiveVoice(options: LiveOptions) {
@@ -216,16 +220,16 @@ function createLiveVoice(options: LiveOptions) {
   function reportUnexpectedClosure(reason?: string) {
     if (state === "stopping" || state === "closed") return;
     const messages: Record<string, string> = {
-      startup_timeout: "Voice startup timed out. Start a new call to retry.",
-      initial_heartbeat_timeout: "Voice media did not connect. Start a new call to retry.",
-      heartbeat_timeout: "Voice connection was lost. Start a new call to retry.",
-      gateway_shutdown: "The voice service restarted. Start a new call to reconnect.",
-      inactivity_timeout: "The voice call ended after inactivity.",
-      duration_limit: "The voice call reached its duration limit. Start a new call to continue.",
+      startup_timeout: "شروع تماس طول کشید. دوباره تماس بگیرید.",
+      initial_heartbeat_timeout: "صدا وصل نشد. دوباره تماس بگیرید.",
+      heartbeat_timeout: "ارتباط صوتی قطع شد. دوباره تماس بگیرید.",
+      gateway_shutdown: "سرویس صوتی دوباره راه‌اندازی شد. دوباره تماس بگیرید.",
+      inactivity_timeout: "تماس به‌خاطر سکوت طولانی تمام شد.",
+      duration_limit: "تماس به حداکثر زمان رسید. برای ادامه دوباره تماس بگیرید.",
     };
     options.onEvent({
       type: "app.error",
-      error: { message: messages[reason ?? ""] ?? "The voice call ended unexpectedly. Start a new call to retry." },
+      error: { message: messages[reason ?? ""] ?? "تماس ناگهان قطع شد. دوباره تماس بگیرید." },
     });
   }
 
@@ -269,7 +273,7 @@ function createLiveVoice(options: LiveOptions) {
     answerReceived = true;
     clearTimeout(deadline);
     deadline = setTimeout(
-      () => fail("Voice media did not connect within 12 seconds. Start a new call to retry."),
+      () => fail("صدا در ۱۲ ثانیه وصل نشد. دوباره تماس بگیرید."),
       12_000,
     );
     await peer.setRemoteDescription({ type: "answer", sdp: event.transport.sdp });
@@ -309,6 +313,7 @@ function createLiveVoice(options: LiveOptions) {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
+      options.onEvent({ type: "app.microphone", stream });
       const connection = new RTCPeerConnection();
       peer = connection;
       for (const track of stream.getAudioTracks()) {
@@ -347,11 +352,13 @@ function createLiveVoice(options: LiveOptions) {
       if (!starting()) return;
       const sdp = connection.localDescription?.sdp;
       if (!sdp) throw new Error("Missing voice session offer");
+      const startPayload = await options.getStartPayload();
+      if (!starting()) return;
       socket = new WebSocket(options.url);
       deadline = setTimeout(() => fail("Voice session did not start"), 50_000);
       socket.onopen = () => {
         if (!starting()) return release();
-        send({ type: "app.start", sdp });
+        send({ ...startPayload, type: "app.start", sdp });
       };
       socket.onmessage = ({ data }) => {
         try {
@@ -392,7 +399,7 @@ function createLiveVoice(options: LiveOptions) {
         release();
       };
     } catch (error) {
-      fail(error instanceof Error ? error.message : "Microphone startup failed");
+      fail(error instanceof Error ? error.message : "دسترسی به میکروفون ممکن نشد.");
     }
   }
 
