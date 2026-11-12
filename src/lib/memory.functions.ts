@@ -9,7 +9,7 @@ export const refreshMemoryFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { refreshMemory } = await import("@/lib/companion.server");
     try {
-      return await refreshMemory(context.supabase, context.userId, { force: data.force });
+      return await refreshMemory(context.supabase, context.userId, data.force ? { force: true } : {});
     } catch (error) {
       console.error("Memory refresh failed", error);
       return { updated: false };
