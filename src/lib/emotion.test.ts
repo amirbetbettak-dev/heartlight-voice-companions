@@ -37,3 +37,14 @@ describe("personas", () => {
     }
   });
 });
+
+describe("memoryItems", async () => {
+  const { memoryItems } = await import("./companion-data");
+  it("splits bullet notes into separate items", () => {
+    expect(memoryItems("- اسمش سارا است\n• عاشق قهوه است\n\n۱. می‌گوید «دمت گرم»")).toEqual([
+      "اسمش سارا است",
+      "عاشق قهوه است",
+      "می‌گوید «دمت گرم»",
+    ]);
+  });
+});
