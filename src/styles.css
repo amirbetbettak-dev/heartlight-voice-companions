@@ -136,6 +136,16 @@
 [data-persona="arash"] { --glow: oklch(0.8 0.11 188); }
 [data-persona="kian"] { --glow: oklch(0.76 0.14 248); }
 
+/* Tokens derived from --glow must be re-declared where the persona sets it. */
+[data-persona] {
+  --glow-soft: color-mix(in oklab, var(--glow) 22%, transparent);
+  --primary: var(--glow);
+  --ring: var(--glow);
+  --sidebar-primary: var(--glow);
+  --gradient-ambient: radial-gradient(70% 55% at 50% 30%, color-mix(in oklab, var(--glow) 16%, transparent), transparent 72%);
+  --shadow-glow: 0 0 60px -10px color-mix(in oklab, var(--glow) 55%, transparent);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
