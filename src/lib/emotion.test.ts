@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { detectExpression } from "./emotion";
-import { PERSONAS } from "./personas";
+import { memoryItems } from "./memory-notes";
+import { PERSONAS, pickOpening } from "./personas";
 
 describe("detectExpression", () => {
   it("shows empathy for sadness", () => {
@@ -23,10 +24,35 @@ describe("personas", () => {
     expect(PERSONAS.filter((p) => p.gender === "female")).toHaveLength(2);
     expect(PERSONAS.filter((p) => p.gender === "male")).toHaveLength(2);
     expect(new Set(PERSONAS.map((p) => p.voice)).size).toBe(4);
+    expect(PERSONAS.find((p) => p.id === "nazanin")?.voice).toBe("marin");
+    expect(PERSONAS.find((p) => p.id === "taraneh")?.voice).toBe("gleam");
+    expect(PERSONAS.find((p) => p.id === "arash")?.voice).toBe("stone");
+    expect(PERSONAS.find((p) => p.id === "kian")?.voice).toBe("meridian");
   });
   it("keeps every spoken opening within the 480-byte voice limit", () => {
     for (const persona of PERSONAS) {
-      expect(new TextEncoder().encode(persona.opening).length).toBeLessThanOrEqual(480);
+      expect(persona.openings.length).toBeGreaterThan(0);
+      for (const opening of persona.openings) {
+        expect(new TextEncoder().encode(opening).length).toBeLessThanOrEqual(480);
+      }
     }
+  });
+});
+
+describe("memoryItems", () => {
+  it("splits bullet notes into separate items", () => {
+    expect(memoryItems("- اسمش سارا است\n• عاشق قهوه است\n\n۱. می‌گوید «دمت گرم»")).toEqual([
+      "اسمش سارا است",
+      "عاشق قهوه است",
+      "می‌گوید «دمت گرم»",
+    ]);
+  });
+});
+
+describe("pickOpening", () => {
+  it("varies the opening line between calls", () => {
+    const persona = PERSONAS[0]!;
+    expect(pickOpening(persona, () => 0)).toBe(persona.openings[0]);
+    expect(pickOpening(persona, () => 0.99)).toBe(persona.openings[persona.openings.length - 1]);
   });
 });

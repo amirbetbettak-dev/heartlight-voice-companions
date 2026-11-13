@@ -64,6 +64,27 @@ export function RobotFace({ persona, state, expression, levels, textSpeaking, cl
     return () => clearTimeout(timer);
   }, []);
 
+  // Idle life: the eyes wander and glance around now and then.
+  const [wander, setWander] = useState({ x: 0, y: 0 });
+  useEffect(() => {
+    if (size === "xs") return;
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      timer = setTimeout(() => {
+        const calm = stateRef.current === "idle" || stateRef.current === "listening";
+        const range = stateRef.current === "idle" ? 1 : 0.4;
+        setWander(
+          calm && Math.random() < 0.75
+            ? { x: (Math.random() * 2 - 1) * 9 * range, y: (Math.random() * 2 - 1) * 5 * range }
+            : { x: 0, y: 0 },
+        );
+        schedule();
+      }, 1600 + Math.random() * 2600);
+    };
+    schedule();
+    return () => clearTimeout(timer);
+  }, [size]);
+
   // Mouth and listening pulse follow live audio levels.
   useEffect(() => {
     let frame = 0;
@@ -157,7 +178,13 @@ export function RobotFace({ persona, state, expression, levels, textSpeaking, cl
           const cx = 150 + side * 52;
           const cy = 136;
           return (
-            <g key={side} transform={`translate(${cx + pose.gazeX} ${cy + pose.gazeY})`}>
+            <g
+              key={side}
+              style={{
+                transform: `translate(${cx + pose.gazeX + wander.x}px, ${cy + pose.gazeY + wander.y}px)`,
+                transition: "transform 420ms cubic-bezier(0.34, 1.3, 0.64, 1)",
+              }}
+            >
               <g className="face-part" style={{ transform: `scale(${eyeScaleX}, ${eyeScaleY})` }}>
                 <rect
                   x={-eye.w / 2}

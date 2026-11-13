@@ -4,8 +4,15 @@
 - [x] Four personas (2 female, 2 male) with distinct voices and tones
 - [x] Dark home screen with animated robot face (eyes + mouth react to listening/speaking/emotion)
 - [x] Live voice conversation (Persian), seeded with memory + recent history, transcripts saved
-- [x] Text chat sharing the same single continuous conversation
-- [x] Memory: AI-maintained notes about the user, viewable/clearable in settings
-- [x] Settings: switch persona, view/clear memory, clear conversation, sign out
+- [x] Memory: AI-maintained notes about the user
 - [x] Mobile-first responsive + installable (manifest, icons)
-- [ ] Verify end-to-end (sign in, text chat, voice call) — waits on a real signed-in test with a microphone
+- [x] Guest sign-in button (no Google needed)
+- [x] Phone number + SMS code sign-in screen
+- [ ] Turn on SMS sending for phone sign-in — waits on an SMS service account (Iranian numbers need a local SMS provider)
+- [x] Minimal, classy landing with modern AI logo (no long descriptions); face lively right after sign-in
+- [x] Organized settings: separate Persona & voice menu (4 personas), separate Memory page, history page
+- [x] Separate chat history per persona + "New conversation"
+- [x] Persona tones: women more playful/witty/warm, men witty/charismatic; voice identity fixed per persona
+- [x] Natural, non-cliché openings; rich vocabulary; learn & reuse the user's own words
+- [x] Interruptions: pause, listen, answer, then resume the unfinished thought
+- [ ] Verify end-to-end (sign in, text chat, voice call) — waits on AI credits (replies currently fail: credits used up) and a real microphone test

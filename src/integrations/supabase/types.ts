@@ -14,9 +14,37 @@ export type Database = {
   }
   public: {
     Tables: {
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          persona_id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          persona_id: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          persona_id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
+          conversation_id: string | null
           created_at: string
           id: string
           persona_id: string
@@ -26,6 +54,7 @@ export type Database = {
         }
         Insert: {
           content: string
+          conversation_id?: string | null
           created_at?: string
           id?: string
           persona_id: string
@@ -35,6 +64,7 @@ export type Database = {
         }
         Update: {
           content?: string
+          conversation_id?: string | null
           created_at?: string
           id?: string
           persona_id?: string
@@ -42,7 +72,15 @@ export type Database = {
           source?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_memory: {
         Row: {

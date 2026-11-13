@@ -3,7 +3,7 @@ import { stepCountIs, streamText, type ModelMessage } from "ai";
 import process from "node:process";
 
 import { CHAT_MODEL, GATEWAY_URL, LIVE_MODEL, loadCompanionContext, refreshMemory, voiceInstructions } from "@/lib/companion.server";
-import { getPersona, type Persona } from "@/lib/personas";
+import { pickOpening, type Persona } from "@/lib/personas";
 import { getUserClient, type UserClient } from "@/lib/supabase-user.server";
 
 export type LiveConfig = {
@@ -117,6 +117,7 @@ export function handleLiveRequest(request: Request): Response {
 type CallContext = {
   supabase: UserClient;
   userId: string;
+  conversationId: string;
   persona: Persona;
   memory: string;
 };
@@ -364,6 +365,7 @@ export function bindLiveConnection(
     const rows = turns
       .map((turn, index) => ({
         user_id: call!.userId,
+        conversation_id: call!.conversationId,
         role: turn.role,
         content: turn.text.replace(/\s+/g, " ").trim(),
         persona_id: call!.persona.id,
@@ -587,7 +589,7 @@ export function bindLiveConnection(
     }
   }
 
-  async function startSession(sdp: string, token: unknown, personaId: unknown) {
+  async function startSession(sdp: string, token: unknown, conversationId: unknown) {
     if (closing || browser.readyState !== 1) return;
     clearTimeout(startTimer);
     startupTimer = setTimeout(() => {
@@ -598,10 +600,16 @@ export function bindLiveConnection(
     const { supabase, userId } = await getUserClient(typeof token === "string" ? token : null).catch(() => {
       throw new Error("برای تماس صوتی دوباره وارد شوید.");
     });
-    const context = await loadCompanionContext(supabase, userId, 8);
-    const persona = getPersona(personaId);
-    call = { supabase, userId, persona, memory: context.memory };
-    config.openingInstructions = persona.opening;
+    if (typeof conversationId !== "string" || !/^[0-9a-f-]{36}$/i.test(conversationId)) {
+      throw new Error("گفت‌وگو پیدا نشد. صفحه را تازه کنید.");
+    }
+    const context = await loadCompanionContext(supabase, userId, conversationId, 8).catch(() => {
+      throw new Error("گفت‌وگو پیدا نشد. صفحه را تازه کنید.");
+    });
+    // The voice is fixed by the conversation's persona for the whole call.
+    const persona = context.persona;
+    call = { supabase, userId, conversationId, persona, memory: context.memory };
+    config.openingInstructions = pickOpening(persona);
     if (closing || browser.readyState !== 1) return;
     const accepted = await connect(
       new URL(`${gatewayAPIBase(config.baseURL)}/live/sessions`).href,
@@ -650,7 +658,7 @@ export function bindLiveConnection(
         }
         starting = true;
         execution.waitUntil(
-          startSession(event.sdp, event.token, event.personaId).catch((error) => {
+          startSession(event.sdp, event.token, event.conversationId).catch((error) => {
             if (!closing)
               emit({
                 type: "app.error",

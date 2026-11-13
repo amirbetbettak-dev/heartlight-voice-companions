@@ -6,18 +6,18 @@ import {
   CHAT_MODEL,
   createGatewayProvider,
   gatewayKey,
+  ConversationNotFoundError,
   loadCompanionContext,
   reasoningOptions,
   textInstructions,
   toModelMessages,
 } from "@/lib/companion.server";
-import { getPersona, isPersonaId } from "@/lib/personas";
 import { createLovableAiGatewayRunIdFetch, withLovableAiGatewayRunIdHeader } from "@/lib/run-id.server";
 import { bearerToken, getUserClient, UnauthorizedError } from "@/lib/supabase-user.server";
 
 const bodySchema = z.object({
   text: z.string().trim().min(1).max(4000),
-  personaId: z.string().refine(isPersonaId),
+  conversationId: z.string().uuid(),
 });
 
 function jsonError(status: number, message: string) {
@@ -35,12 +35,24 @@ async function handleChat(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError(400, "پیام نامعتبر است.");
   const { supabase, userId } = auth;
-  const persona = getPersona(parsed.data.personaId);
+  const { conversationId } = parsed.data;
 
-  const context = await loadCompanionContext(supabase, userId);
-  const userInsert = await supabase
-    .from("messages")
-    .insert({ user_id: userId, role: "user", content: parsed.data.text, persona_id: persona.id, source: "text" });
+  let context;
+  try {
+    context = await loadCompanionContext(supabase, userId, conversationId);
+  } catch (error) {
+    if (error instanceof ConversationNotFoundError) return jsonError(404, "این گفت‌وگو پیدا نشد.");
+    throw error;
+  }
+  const persona = context.persona;
+  const userInsert = await supabase.from("messages").insert({
+    user_id: userId,
+    conversation_id: conversationId,
+    role: "user",
+    content: parsed.data.text,
+    persona_id: persona.id,
+    source: "text",
+  });
   if (userInsert.error) {
     console.error("Saving user message failed", userInsert.error);
     return jsonError(500, "ذخیره‌ی پیام ممکن نشد. دوباره تلاش کنید.");
@@ -73,7 +85,14 @@ async function handleChat(request: Request) {
         if (!text) return;
         const saved = await supabase
           .from("messages")
-          .insert({ user_id: userId, role: "assistant", content: text, persona_id: persona.id, source: "text" });
+          .insert({
+            user_id: userId,
+            conversation_id: conversationId,
+            role: "assistant",
+            content: text,
+            persona_id: persona.id,
+            source: "text",
+          });
         if (saved.error) console.error("Saving assistant message failed", saved.error);
       },
     }),

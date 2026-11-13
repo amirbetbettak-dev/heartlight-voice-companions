@@ -31,7 +31,9 @@ use the editor.
 
 ## Project rules
 - Voice calls go through `src/lib/live-relay.server.ts` (dispatched from `src/server.ts`, dev via `live-vite-plugin.ts`); the relay verifies the user token from `app.start` before opening a paid session and saves transcripts on close — keeps calls restricted and transcripts server-owned.
-- Text chat (`/api/chat`) and voice share one continuous conversation in `messages`; the server loads history from the database, never trusting client history.
-- Persona prompts, voices and openings live only in `src/lib/personas.ts`; openings must stay under 480 UTF-8 bytes (relay append limit).
+- Each persona has its own conversations (`conversations`, `messages.conversation_id`); `/talk?c=<id>` is the active conversation, and text chat (`/api/chat`) and voice both take that id and load history from the database, never trusting client history or a client-sent persona.
+- Persona prompts, voices and openings live only in `src/lib/personas.ts`; each opening variant must stay under 480 UTF-8 bytes (relay append limit).
 - Long-term memory is one AI-maintained summary per user (`user_memory`), refreshed by `refreshMemory` using `updated_at` as the message watermark.
 - PWA is manifest-only (no service worker) — installability without stale-cache risk.
+- Sign-in methods: Google, phone SMS code, and anonymous guest; any `authenticated` user (including guests) can use the app, so RLS must scope by `auth.uid()` rather than by sign-in method.
+- Tokens derived from `--glow` are re-declared under `[data-persona]` in styles.css, because custom properties resolve `var()` where they are declared.
