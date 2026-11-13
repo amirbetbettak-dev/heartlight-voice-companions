@@ -7,7 +7,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { supabase } from "@/integrations/supabase/client";
 import { formatPhone, normalizePhone } from "@/lib/phone";
 
-function smsError(error: { message?: string; code?: string; status?: number }) {
+function smsError(error: { message?: string | undefined; code?: string | undefined; status?: number | undefined }) {
   const text = `${error.code ?? ""} ${error.message ?? ""}`.toLowerCase();
   if (text.includes("provider") || text.includes("disabled") || text.includes("unsupported")) {
     return "ورود با پیامک هنوز فعال نشده است. فعلاً با گوگل یا به‌عنوان مهمان وارد شوید.";
