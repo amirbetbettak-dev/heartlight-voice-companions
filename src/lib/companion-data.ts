@@ -136,14 +136,6 @@ export const memoryQuery = queryOptions({
   },
 });
 
-/** Split the AI-maintained memory notes into separate items for display. */
-export function memoryItems(summary: string) {
-  return summary
-    .split(/\n+/)
-    .map((line) => line.replace(/^\s*(?:[-•*–]|\d+[.)]|[۰-۹]+[.)])\s*/, "").trim())
-    .filter(Boolean);
-}
-
 export async function savePersona(personaId: PersonaId) {
   const user = await requireUser();
   const { error } = await supabase

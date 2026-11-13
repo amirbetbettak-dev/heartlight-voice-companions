@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { detectExpression } from "./emotion";
-import { PERSONAS } from "./personas";
+import { memoryItems } from "./memory-notes";
+import { PERSONAS, pickOpening } from "./personas";
 
 describe("detectExpression", () => {
   it("shows empathy for sadness", () => {
@@ -38,13 +39,20 @@ describe("personas", () => {
   });
 });
 
-describe("memoryItems", async () => {
-  const { memoryItems } = await import("./companion-data");
+describe("memoryItems", () => {
   it("splits bullet notes into separate items", () => {
     expect(memoryItems("- اسمش سارا است\n• عاشق قهوه است\n\n۱. می‌گوید «دمت گرم»")).toEqual([
       "اسمش سارا است",
       "عاشق قهوه است",
       "می‌گوید «دمت گرم»",
     ]);
+  });
+});
+
+describe("pickOpening", () => {
+  it("varies the opening line between calls", () => {
+    const persona = PERSONAS[0]!;
+    expect(pickOpening(persona, () => 0)).toBe(persona.openings[0]);
+    expect(pickOpening(persona, () => 0.99)).toBe(persona.openings[persona.openings.length - 1]);
   });
 });
