@@ -1,19 +1,28 @@
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { DefaultChatTransport } from "ai";
-import { Keyboard, Loader2, Mic, MicOff, PhoneOff, Settings2, Volume2, AudioLines } from "lucide-react";
+import { Keyboard, Loader2, Mic, MicOff, PhoneOff, Settings2, Volume2, AudioLines, SquarePen } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ChatPanel, type Caption } from "@/components/companion/chat-panel";
 import { RobotFace, type FaceState } from "@/components/companion/robot-face";
-import { SettingsSheet } from "@/components/companion/settings-sheet";
+import { SettingsSheet, type SettingsView } from "@/components/companion/settings-sheet";
 import { Button } from "@/components/ui/button";
 import { useAudioLevels } from "@/hooks/use-audio-levels";
 import { useLiveVoice, type LiveEvent } from "@/hooks/use-live-voice";
 import { supabase } from "@/integrations/supabase/client";
-import { companionQuery, fetchMessages, savePersona, type ChatMessage } from "@/lib/companion-data";
+import {
+  companionQuery,
+  conversationQuery,
+  conversationsQuery,
+  createConversation,
+  fetchMessages,
+  resolveConversation,
+  savePersona,
+  type ChatMessage,
+} from "@/lib/companion-data";
 import { detectExpression, type FaceExpression } from "@/lib/emotion";
 import { refreshMemoryFn } from "@/lib/memory.functions";
 import { getPersona, type PersonaId } from "@/lib/personas";
@@ -31,7 +40,18 @@ export const Route = createFileRoute("/_authenticated/talk")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(companionQuery),
+  validateSearch: (search: Record<string, unknown>): { c?: string } =>
+    typeof search["c"] === "string" ? { c: search["c"] } : {},
+  loaderDeps: ({ search }) => ({ c: search.c }),
+  loader: async ({ context, deps }) => {
+    const account = await context.queryClient.ensureQueryData(companionQuery);
+    // Without a conversation in the URL, open the current persona's latest one.
+    if (!deps.c) {
+      throw redirect({ to: "/talk", search: { c: await resolveConversation(account.personaId) }, replace: true });
+    }
+    const conversation = await context.queryClient.fetchQuery({ ...conversationQuery(deps.c), staleTime: 0 });
+    if (!conversation) throw redirect({ to: "/talk", search: {}, replace: true });
+  },
   component: TalkPage,
 });
 
@@ -41,16 +61,45 @@ async function accessToken() {
 }
 
 function TalkPage() {
+  const { c } = Route.useSearch();
+  const [mode, setMode] = useState<"voice" | "text">("voice");
+  if (!c) return null;
+  // Each conversation gets a fresh chat + call state, so messages never bleed between them.
+  return <TalkView key={c} conversationId={c} mode={mode} setMode={setMode} />;
+}
+
+function TalkView({
+  conversationId,
+  mode,
+  setMode,
+}: {
+  conversationId: string;
+  mode: "voice" | "text";
+  setMode: (mode: "voice" | "text") => void;
+}) {
   const { data } = useSuspenseQuery(companionQuery);
+  const { data: conversation } = useSuspenseQuery(conversationQuery(conversationId));
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [personaId, setPersonaId] = useState<PersonaId>(data.personaId);
+  const personaId: PersonaId = conversation?.personaId ?? data.personaId;
   const persona = getPersona(personaId);
   const personaRef = useRef(personaId);
   personaRef.current = personaId;
 
-  const [mode, setMode] = useState<"voice" | "text">("voice");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsView, setSettingsView] = useState<SettingsView>("main");
+  const openSettings = (view: SettingsView) => {
+    setSettingsView(view);
+    setSettingsOpen(true);
+  };
+
+  // Remember the persona of the conversation being viewed for next time.
+  useEffect(() => {
+    if (data.personaId === personaId) return;
+    savePersona(personaId)
+      .then(() => queryClient.setQueryData(companionQuery.queryKey, (old) => (old ? { ...old, personaId } : old)))
+      .catch(() => {});
+  }, [data.personaId, personaId, queryClient]);
   const [expression, setExpression] = useState<FaceExpression>("neutral");
   const expressionTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [captions, setCaptions] = useState<Caption[]>([]);
@@ -75,19 +124,20 @@ function TalkPage() {
           const last = messages[messages.length - 1];
           const text = last?.parts.map((part) => (part.type === "text" ? part.text : "")).join("") ?? "";
           return {
-            body: { text, personaId: personaRef.current },
+            body: { text, conversationId },
             headers: { Authorization: `Bearer ${await accessToken()}` },
           };
         },
       }),
-    [],
+    [conversationId],
   );
 
   const chat = useChat<ChatMessage>({
-    id: "main",
-    messages: data.messages,
+    id: conversationId,
+    messages: conversation?.messages ?? [],
     transport,
     onFinish: () => {
+      void queryClient.invalidateQueries({ queryKey: conversationsQuery.queryKey });
       void refreshMemoryFn({ data: {} }).catch(() => {});
     },
     onError: (error) => {
@@ -145,10 +195,13 @@ function TalkPage() {
         const before = chat.messages.length;
         const reload = async (attempt: number) => {
           try {
-            const fresh = await fetchMessages();
+            const fresh = await fetchMessages(conversationId);
             if (fresh.length > before || attempt >= 3) {
               chat.setMessages(fresh);
-              if (fresh.length > before) setCaptions([]);
+              if (fresh.length > before) {
+                setCaptions([]);
+                void queryClient.invalidateQueries({ queryKey: conversationsQuery.queryKey });
+              }
               return;
             }
           } catch {
@@ -159,12 +212,12 @@ function TalkPage() {
         setTimeout(() => void reload(1), 1500);
       }
     },
-    [chat, react],
+    [chat, react, conversationId, queryClient],
   );
 
   const voice = useLiveVoice({
     onEvent: onVoiceEvent,
-    getStartPayload: async () => ({ token: await accessToken(), personaId: personaRef.current }),
+    getStartPayload: async () => ({ token: await accessToken(), conversationId }),
   });
   const levels = useAudioLevels(voice.audioRef, micStream);
   const inCall = voice.status === "connecting" || voice.status === "connected" || voice.status === "stopping";
@@ -192,20 +245,41 @@ function TalkPage() {
     voice.start();
   };
 
-  // ---------- Persona ----------
+  // ---------- Persona & conversations ----------
+  const openConversation = (id: string) => {
+    setSettingsOpen(false);
+    if (id === conversationId) return;
+    if (inCall) voice.stop();
+    void navigate({ to: "/talk", search: { c: id } });
+  };
+
   const selectPersona = async (id: PersonaId) => {
+    setSettingsOpen(false);
     if (id === personaId) return;
-    setPersonaId(id);
-    react("happy", 3000);
-    if (inCall) {
-      voice.stop();
-      toast(`صدای ${getPersona(id).name} از تماس بعدی فعال می‌شود.`);
-    }
+    if (inCall) voice.stop();
     try {
       await savePersona(id);
       queryClient.setQueryData(companionQuery.queryKey, (old) => (old ? { ...old, personaId: id } : old));
+      void navigate({ to: "/talk", search: { c: await resolveConversation(id) } });
     } catch {
-      toast.error("ذخیره‌ی شخصیت ممکن نشد.");
+      toast.error("تغییر شخصیت ممکن نشد. دوباره امتحان کنید.");
+    }
+  };
+
+  const newConversation = async (forPersona: PersonaId = personaId) => {
+    if (forPersona === personaId && chat.messages.length === 0 && captions.length === 0) {
+      setSettingsOpen(false);
+      toast("همین الان یک گفت‌وگوی تازه باز است.");
+      return;
+    }
+    if (inCall) voice.stop();
+    try {
+      const id = await createConversation(forPersona);
+      void queryClient.invalidateQueries({ queryKey: conversationsQuery.queryKey });
+      setSettingsOpen(false);
+      void navigate({ to: "/talk", search: { c: id } });
+    } catch {
+      toast.error("شروع گفت‌وگوی جدید ممکن نشد.");
     }
   };
 
@@ -247,7 +321,7 @@ function TalkPage() {
         <header className="flex items-center justify-between gap-3 px-4 pt-safe">
           <button
             type="button"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => openSettings("persona")}
             className="flex items-center gap-2 rounded-full border border-border bg-card/60 py-1 pe-3 ps-1 backdrop-blur"
             aria-label="تغییر شخصیت"
           >
@@ -267,7 +341,17 @@ function TalkPage() {
             >
               {mode === "voice" ? <Keyboard className="size-5" /> : <AudioLines className="size-5" />}
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setSettingsOpen(true)} aria-label="تنظیمات">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              onClick={() => void newConversation()}
+              aria-label="گفت‌وگوی جدید"
+              title="گفت‌وگوی جدید"
+            >
+              <SquarePen className="size-5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="rounded-full" onClick={() => openSettings("main")} aria-label="تنظیمات">
               <Settings2 className="size-5" />
             </Button>
           </div>
@@ -363,14 +447,26 @@ function TalkPage() {
       <SettingsSheet
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
+        view={settingsView}
+        onViewChange={setSettingsView}
         personaId={personaId}
+        conversationId={conversationId}
         onSelectPersona={(id) => void selectPersona(id)}
-        onConversationCleared={() => {
-          chat.setMessages([]);
-          setCaptions([]);
+        onOpenConversation={openConversation}
+        onNewConversation={(id) => void newConversation(id)}
+        onConversationDeleted={(id) => {
+          if (id !== conversationId) return;
+          setSettingsOpen(false);
+          if (inCall) voice.stop();
+          void navigate({ to: "/talk", search: {}, replace: true });
+        }}
+        onAllConversationsCleared={() => {
+          setSettingsOpen(false);
+          if (inCall) voice.stop();
+          void navigate({ to: "/talk", search: {}, replace: true });
         }}
         onSignOut={() => void signOut()}
-        account={{ email: data.email, name: data.name }}
+        account={{ email: data.email, name: data.name, phone: data.phone, isAnonymous: data.isAnonymous }}
       />
     </div>
   );
