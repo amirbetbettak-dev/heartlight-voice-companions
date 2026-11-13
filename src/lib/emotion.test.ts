@@ -23,10 +23,17 @@ describe("personas", () => {
     expect(PERSONAS.filter((p) => p.gender === "female")).toHaveLength(2);
     expect(PERSONAS.filter((p) => p.gender === "male")).toHaveLength(2);
     expect(new Set(PERSONAS.map((p) => p.voice)).size).toBe(4);
+    expect(PERSONAS.find((p) => p.id === "nazanin")?.voice).toBe("marin");
+    expect(PERSONAS.find((p) => p.id === "taraneh")?.voice).toBe("gleam");
+    expect(PERSONAS.find((p) => p.id === "arash")?.voice).toBe("stone");
+    expect(PERSONAS.find((p) => p.id === "kian")?.voice).toBe("meridian");
   });
   it("keeps every spoken opening within the 480-byte voice limit", () => {
     for (const persona of PERSONAS) {
-      expect(new TextEncoder().encode(persona.opening).length).toBeLessThanOrEqual(480);
+      expect(persona.openings.length).toBeGreaterThan(0);
+      for (const opening of persona.openings) {
+        expect(new TextEncoder().encode(opening).length).toBeLessThanOrEqual(480);
+      }
     }
   });
 });
