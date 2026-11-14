@@ -2,7 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { streamText } from "ai";
 import { z } from "zod";
 
-import { AiConfigError, chatModel, describeAiError, type ChatProviderConfig } from "@/lib/ai-provider.server";
+import {
+  AiConfigError,
+  chatModel,
+  describeAiError,
+  type ChatProviderConfig,
+} from "@/lib/ai-provider.server";
 import {
   ConversationNotFoundError,
   loadCompanionContext,
@@ -10,7 +15,10 @@ import {
   textProvider,
   toModelMessages,
 } from "@/lib/companion.server";
-import { createLovableAiGatewayRunIdFetch, withLovableAiGatewayRunIdHeader } from "@/lib/run-id.server";
+import {
+  createLovableAiGatewayRunIdFetch,
+  withLovableAiGatewayRunIdHeader,
+} from "@/lib/run-id.server";
 import { bearerToken, getUserClient, UnauthorizedError } from "@/lib/supabase-user.server";
 
 const bodySchema = z.object({
@@ -69,7 +77,10 @@ async function handleChat(request: Request) {
   }
 
   const runIdFetch = createLovableAiGatewayRunIdFetch();
-  const { model, providerOptions } = chatModel(provider, provider.kind === "lovable" ? runIdFetch.fetch : undefined);
+  const { model, providerOptions } = chatModel(
+    provider,
+    provider.kind === "lovable" ? runIdFetch.fetch : undefined,
+  );
   const result = streamText({
     model,
     instructions: textInstructions(persona, context.memory),
@@ -82,32 +93,32 @@ async function handleChat(request: Request) {
   });
 
   const response = result.toUIMessageStreamResponse({
-      sendReasoning: false,
-      onError: (error) => {
-        console.error("Chat stream failed", provider.kind, error);
-        return describeAiError(error, provider.kind);
-      },
-      onFinish: async ({ responseMessage }) => {
-        const text = responseMessage.parts
-          .map((part) => (part.type === "text" ? part.text : ""))
-          .join("")
-          .trim();
-        if (!text) return;
-        const saved = await supabase
-          .from("messages")
-          .insert({
-            user_id: userId,
-            conversation_id: conversationId,
-            role: "assistant",
-            content: text,
-            persona_id: persona.id,
-            source: "text",
-          });
-        if (saved.error) console.error("Saving assistant message failed", saved.error);
-      },
-    }),
-    runIdFetch,
-  );
+    sendReasoning: false,
+    onError: (error) => {
+      console.error("Chat stream failed", provider.kind, error);
+      return describeAiError(error, provider.kind);
+    },
+    onFinish: async ({ responseMessage }) => {
+      const text = responseMessage.parts
+        .map((part) => (part.type === "text" ? part.text : ""))
+        .join("")
+        .trim();
+      if (!text) return;
+      const saved = await supabase.from("messages").insert({
+        user_id: userId,
+        conversation_id: conversationId,
+        role: "assistant",
+        content: text,
+        persona_id: persona.id,
+        source: "text",
+      });
+      if (saved.error) console.error("Saving assistant message failed", saved.error);
+    },
+  });
+  // The run-id header only exists on Lovable AI; waiting for it with another service would hang forever.
+  return provider.kind === "lovable"
+    ? withLovableAiGatewayRunIdHeader(response, runIdFetch)
+    : response;
 }
 
 export const Route = createFileRoute("/api/chat")({
