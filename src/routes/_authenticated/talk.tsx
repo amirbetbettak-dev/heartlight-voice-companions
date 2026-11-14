@@ -155,19 +155,19 @@ function TalkView({
   });
 
   // Last-resort watchdog: if nothing arrives for a long stretch, stop waiting instead of spinning forever.
-  const chatBusy = chat.status === "submitted" || chat.status === "streaming";
+  const chatWaiting = chat.status === "submitted" || chat.status === "streaming";
   const lastChatMessage = chat.messages[chat.messages.length - 1];
   const lastChatProgress = lastChatMessage
     ? `${lastChatMessage.id}:${lastChatMessage.parts.map((part) => (part.type === "text" ? part.text.length : 0)).join(",")}`
     : "";
   useEffect(() => {
-    if (!chatBusy) return;
+    if (!chatWaiting) return;
     const timer = setTimeout(() => {
       void chat.stop();
       toast.error("پاسخی نیامد. اتصال یا سرویس هوش مصنوعی را بررسی کنید و دوباره امتحان کنید.");
     }, CHAT_STALL_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [chatBusy, lastChatProgress, chat]);
+  }, [chatWaiting, lastChatProgress, chat]);
 
   const sendText = useCallback(
     (text: string) => {
