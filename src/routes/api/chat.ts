@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { streamText } from "ai";
 import { z } from "zod";
 
-import { chatModel } from "@/lib/ai-provider.server";
+import { AiConfigError, chatModel, describeAiError, type ChatProviderConfig } from "@/lib/ai-provider.server";
 import {
   ConversationNotFoundError,
   loadCompanionContext,
@@ -17,6 +17,9 @@ const bodySchema = z.object({
   text: z.string().trim().min(1).max(4000),
   conversationId: z.string().uuid(),
 });
+
+const CHAT_FIRST_CHUNK_TIMEOUT_MS = 90_000;
+const CHAT_CHUNK_TIMEOUT_MS = 45_000;
 
 function jsonError(status: number, message: string) {
   return Response.json({ error: message }, { status });
@@ -34,6 +37,15 @@ async function handleChat(request: Request) {
   if (!parsed.success) return jsonError(400, "پیام نامعتبر است.");
   const { supabase, userId } = auth;
   const { conversationId } = parsed.data;
+
+  // Resolve the AI service before saving anything, so a missing key fails fast with a clear message.
+  let provider: ChatProviderConfig;
+  try {
+    provider = textProvider();
+  } catch (error) {
+    if (error instanceof AiConfigError) return jsonError(503, error.message);
+    throw error;
+  }
 
   let context;
   try {
@@ -56,7 +68,6 @@ async function handleChat(request: Request) {
     return jsonError(500, "ذخیره‌ی پیام ممکن نشد. دوباره تلاش کنید.");
   }
 
-  const provider = textProvider();
   const runIdFetch = createLovableAiGatewayRunIdFetch();
   const { model, providerOptions } = chatModel(provider, provider.kind === "lovable" ? runIdFetch.fetch : undefined);
   const result = streamText({
@@ -64,6 +75,9 @@ async function handleChat(request: Request) {
     instructions: textInstructions(persona, context.memory),
     messages: [...toModelMessages(context.history), { role: "user", content: parsed.data.text }],
     abortSignal: request.signal,
+    // Inactivity limits, not a total deadline: give up only when the service goes silent.
+    timeout: { firstChunkMs: CHAT_FIRST_CHUNK_TIMEOUT_MS, chunkMs: CHAT_CHUNK_TIMEOUT_MS },
+    maxRetries: 1,
     providerOptions,
   });
 
@@ -71,12 +85,8 @@ async function handleChat(request: Request) {
     result.toUIMessageStreamResponse({
       sendReasoning: false,
       onError: (error) => {
-        console.error("Chat stream failed", error);
-        const status = (error as { statusCode?: number })?.statusCode;
-        if (status === 401 || status === 403) return "کلید هوش مصنوعی نامعتبر است.";
-        if (status === 402) return "اعتبار هوش مصنوعی تمام شده است.";
-        if (status === 429) return "الان شلوغ است؛ چند لحظه بعد دوباره امتحان کنید.";
-        return "پاسخ کامل نشد. دوباره امتحان کنید.";
+        console.error("Chat stream failed", provider.kind, error);
+        return describeAiError(error, provider.kind);
       },
       onFinish: async ({ responseMessage }) => {
         const text = responseMessage.parts
