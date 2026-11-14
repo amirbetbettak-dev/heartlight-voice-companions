@@ -2,14 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { streamText } from "ai";
 import { z } from "zod";
 
+import { chatModel } from "@/lib/ai-provider.server";
 import {
-  CHAT_MODEL,
-  createGatewayProvider,
-  gatewayKey,
   ConversationNotFoundError,
   loadCompanionContext,
-  reasoningOptions,
   textInstructions,
+  textProvider,
   toModelMessages,
 } from "@/lib/companion.server";
 import { createLovableAiGatewayRunIdFetch, withLovableAiGatewayRunIdHeader } from "@/lib/run-id.server";
@@ -58,13 +56,15 @@ async function handleChat(request: Request) {
     return jsonError(500, "ذخیره‌ی پیام ممکن نشد. دوباره تلاش کنید.");
   }
 
+  const provider = textProvider();
   const runIdFetch = createLovableAiGatewayRunIdFetch();
+  const { model, providerOptions } = chatModel(provider, provider.kind === "lovable" ? runIdFetch.fetch : undefined);
   const result = streamText({
-    model: createGatewayProvider(gatewayKey(), runIdFetch.fetch).responses(CHAT_MODEL),
+    model,
     instructions: textInstructions(persona, context.memory),
     messages: [...toModelMessages(context.history), { role: "user", content: parsed.data.text }],
     abortSignal: request.signal,
-    providerOptions: reasoningOptions,
+    providerOptions,
   });
 
   return withLovableAiGatewayRunIdHeader(
@@ -73,6 +73,7 @@ async function handleChat(request: Request) {
       onError: (error) => {
         console.error("Chat stream failed", error);
         const status = (error as { statusCode?: number })?.statusCode;
+        if (status === 401 || status === 403) return "کلید هوش مصنوعی نامعتبر است.";
         if (status === 402) return "اعتبار هوش مصنوعی تمام شده است.";
         if (status === 429) return "الان شلوغ است؛ چند لحظه بعد دوباره امتحان کنید.";
         return "پاسخ کامل نشد. دوباره امتحان کنید.";

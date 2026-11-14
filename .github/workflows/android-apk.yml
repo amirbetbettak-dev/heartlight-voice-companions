@@ -1,0 +1,54 @@
+name: Build Android APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Create and sync the Android project
+        run: |
+          if [ ! -d android ]; then npx cap add android; fi
+          npx cap sync android
+
+      - name: Allow microphone (voice calls)
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          for PERM in RECORD_AUDIO MODIFY_AUDIO_SETTINGS; do
+            grep -q "android.permission.$PERM" "$MANIFEST" || \
+              sed -i "s#</manifest>#    <uses-permission android:name=\"android.permission.$PERM\" />\n</manifest>#" "$MANIFEST"
+          done
+          cat "$MANIFEST"
+
+      - name: Build APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hamdam-android-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

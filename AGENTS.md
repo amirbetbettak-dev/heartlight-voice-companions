@@ -37,3 +37,5 @@ use the editor.
 - PWA is manifest-only (no service worker) — installability without stale-cache risk.
 - Sign-in methods: Google, phone SMS code, and anonymous guest; any `authenticated` user (including guests) can use the app, so RLS must scope by `auth.uid()` rather than by sign-in method.
 - Tokens derived from `--glow` are re-declared under `[data-persona]` in styles.css, because custom properties resolve `var()` where they are declared.
+- Text chat and memory pick their AI service in `src/lib/ai-provider.server.ts`: a custom key secret (`OPENROUTER_API_KEY`, `GROQ_API_KEY`, `OPENAI_API_KEY`, optional `AI_MODEL`) overrides Lovable AI so the app runs without gateway credits; voice stays on Lovable AI because live sessions exist only on the gateway.
+- The Android APK is a Capacitor shell whose WebView loads the published URL (`capacitor.config.ts` `server.url`), because chat, voice and sign-in need the app's server; `android/` is generated in GitHub Actions (`.github/workflows/android-apk.yml`), not committed.
