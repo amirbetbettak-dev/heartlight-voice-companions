@@ -16,3 +16,7 @@
 - [x] Natural, non-cliché openings; rich vocabulary; learn & reuse the user's own words
 - [x] Interruptions: pause, listen, answer, then resume the unfinished thought
 - [ ] Verify end-to-end (sign in, text chat, voice call) — waits on AI credits (replies currently fail: credits used up) and a real microphone test
+- [x] Android APK via Capacitor, built automatically in GitHub Actions (downloadable from the Actions run)
+- [x] Optional own AI key (OpenRouter / Groq / OpenAI) for text chat and memory
+- [ ] Add an own AI key — waits on the user providing one (OpenRouter, Groq or OpenAI)
+- [ ] First APK build on GitHub — waits on the project being connected to GitHub
