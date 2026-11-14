@@ -70,5 +70,5 @@ export function chatModel(config: ChatProviderConfig, fetchImpl?: typeof fetch) 
         ? { "HTTP-Referer": "https://heartlight-voice-companions.lovable.app", "X-Title": "Hamdam" }
         : undefined,
   });
-  return { model: provider.chat(config.model) as LanguageModel, providerOptions: undefined };
+  return { model: provider.chat(config.model) as LanguageModel, providerOptions: {} };
 }
