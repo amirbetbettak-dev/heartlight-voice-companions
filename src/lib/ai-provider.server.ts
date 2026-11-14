@@ -19,7 +19,7 @@ export type ChatProviderConfig = {
 type Env = Record<string, string | undefined>;
 
 const CUSTOM_PROVIDERS: Array<{ kind: Exclude<ProviderKind, "lovable">; envKey: string; baseURL: string; model: string }> = [
-  { kind: "openrouter", envKey: "OPENROUTER_API_KEY", baseURL: "https://openrouter.ai/api/v1", model: "openai/gpt-5-mini" },
+  { kind: "openrouter", envKey: "OPENROUTER_API_KEY", baseURL: "https://openrouter.ai/api/v1", model: "openrouter/free" },
   { kind: "groq", envKey: "GROQ_API_KEY", baseURL: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-120b" },
   { kind: "openai", envKey: "OPENAI_API_KEY", baseURL: "https://api.openai.com/v1", model: "gpt-5-mini" },
 ];
