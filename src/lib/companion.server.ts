@@ -1,39 +1,18 @@
 // Server-only companion brain: persona instructions, conversation context and long-term memory.
-import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, type ModelMessage } from "ai";
 import process from "node:process";
 
+import { chatModel, resolveChatProvider } from "@/lib/ai-provider.server";
 import { getPersona, type Persona } from "@/lib/personas";
 import type { UserClient } from "@/lib/supabase-user.server";
 
-export const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1";
-export const CHAT_MODEL = "openai/gpt-6-astra";
+export { CHAT_MODEL, GATEWAY_URL } from "@/lib/ai-provider.server";
 export const LIVE_MODEL = "openai/gpt-live-1";
 
-export function gatewayKey() {
-  const key = process.env["LOVABLE_API_KEY"];
-  if (!key) throw new Error("AI is not configured");
-  return key;
+/** The AI service for text chat and memory: a custom key secret if set, otherwise Lovable AI. */
+export function textProvider() {
+  return resolveChatProvider(process.env);
 }
-
-export function createGatewayProvider(key: string, fetchImpl?: typeof fetch) {
-  return createOpenAI({
-    baseURL: GATEWAY_URL,
-    apiKey: key,
-    headers: { "Lovable-API-Key": key, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-    ...(fetchImpl ? { fetch: fetchImpl } : {}),
-  });
-}
-
-export const reasoningOptions = {
-  openai: {
-    store: false,
-    forceReasoning: true,
-    reasoningEffort: "low",
-    reasoningSummary: "auto",
-    include: ["reasoning.encrypted_content"],
-  },
-} as const;
 
 const CORE_VALUES = `
 اصول تو:
@@ -159,9 +138,9 @@ export async function refreshMemory(
   const transcript = messages
     .map((message) => `${message.role === "user" ? "کاربر" : "همدم"}: ${message.content.slice(0, 1200)}`)
     .join("\n");
-  const key = gatewayKey();
+  const { model, providerOptions } = chatModel(textProvider());
   const result = streamText({
-    model: createGatewayProvider(key).responses(CHAT_MODEL),
+    model,
     instructions: MEMORY_PROMPT,
     messages: [
       {
@@ -170,7 +149,7 @@ export async function refreshMemory(
       },
     ],
     maxRetries: 1,
-    providerOptions: reasoningOptions,
+    providerOptions,
   });
   const summary = (await finalText(result)).slice(0, 2500);
   if (!summary) return { updated: false };
