@@ -26,7 +26,6 @@ function jsonError(status: number, message: string) {
 }
 
 async function handleChat(request: Request) {
-  console.log('[chatdbg] start');
   let auth;
   try {
     auth = await getUserClient(bearerToken(request));
@@ -34,7 +33,6 @@ async function handleChat(request: Request) {
     if (error instanceof UnauthorizedError) return jsonError(401, "لطفاً دوباره وارد شوید.");
     throw error;
   }
-  console.log('[chatdbg] auth ok');
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError(400, "پیام نامعتبر است.");
   const { supabase, userId } = auth;
@@ -49,7 +47,6 @@ async function handleChat(request: Request) {
     throw error;
   }
 
-  console.log('[chatdbg] provider', provider.kind);
   let context;
   try {
     context = await loadCompanionContext(supabase, userId, conversationId);
@@ -57,7 +54,6 @@ async function handleChat(request: Request) {
     if (error instanceof ConversationNotFoundError) return jsonError(404, "این گفت‌وگو پیدا نشد.");
     throw error;
   }
-  console.log('[chatdbg] context ok');
   const persona = context.persona;
   const userInsert = await supabase.from("messages").insert({
     user_id: userId,
@@ -72,7 +68,6 @@ async function handleChat(request: Request) {
     return jsonError(500, "ذخیره‌ی پیام ممکن نشد. دوباره تلاش کنید.");
   }
 
-  console.log('[chatdbg] user saved');
   const runIdFetch = createLovableAiGatewayRunIdFetch();
   const { model, providerOptions } = chatModel(provider, provider.kind === "lovable" ? runIdFetch.fetch : undefined);
   const result = streamText({
@@ -86,8 +81,7 @@ async function handleChat(request: Request) {
     providerOptions,
   });
 
-  return withLovableAiGatewayRunIdHeader(
-    result.toUIMessageStreamResponse({
+  const response = result.toUIMessageStreamResponse({
       sendReasoning: false,
       onError: (error) => {
         console.error("Chat stream failed", provider.kind, error);
