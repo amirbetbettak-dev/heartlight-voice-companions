@@ -160,14 +160,16 @@ function TalkView({
   const lastChatProgress = lastChatMessage
     ? `${lastChatMessage.id}:${lastChatMessage.parts.map((part) => (part.type === "text" ? part.text.length : 0)).join(",")}`
     : "";
+  const stopChatRef = useRef(chat.stop);
+  stopChatRef.current = chat.stop;
   useEffect(() => {
     if (!chatWaiting) return;
     const timer = setTimeout(() => {
-      void chat.stop();
+      void stopChatRef.current();
       toast.error("پاسخی نیامد. اتصال یا سرویس هوش مصنوعی را بررسی کنید و دوباره امتحان کنید.");
     }, CHAT_STALL_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [chatWaiting, lastChatProgress, chat]);
+  }, [chatWaiting, lastChatProgress]);
 
   const sendText = useCallback(
     (text: string) => {

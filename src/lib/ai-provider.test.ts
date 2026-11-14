@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CHAT_MODEL, resolveChatProvider } from "./ai-provider.server";
+import { AiConfigError, CHAT_MODEL, describeAiError, resolveChatProvider } from "./ai-provider.server";
 
 describe("resolveChatProvider", () => {
   it("uses Lovable AI when no custom key is set", () => {
@@ -10,10 +10,10 @@ describe("resolveChatProvider", () => {
   });
 
   it("uses OpenRouter when OPENROUTER_API_KEY is set, even with a Lovable key", () => {
-    const config = resolveChatProvider({ LOVABLE_API_KEY: "lov", OPENROUTER_API_KEY: "or" });
+    const config = resolveChatProvider({ LOVABLE_API_KEY: "lov", OPENROUTER_API_KEY: "sk-or-v1-or0123456789abcdef" });
     expect(config.kind).toBe("openrouter");
     expect(config.baseURL).toBe("https://openrouter.ai/api/v1");
-    expect(config.key).toBe("or");
+    expect(config.key).toBe("sk-or-v1-or0123456789abcdef");
   });
 
   it("uses Groq when GROQ_API_KEY is set", () => {
@@ -35,6 +35,37 @@ describe("resolveChatProvider", () => {
   });
 
   it("fails clearly when no key at all is configured", () => {
-    expect(() => resolveChatProvider({})).toThrow("AI is not configured");
+    expect(() => resolveChatProvider({})).toThrow(AiConfigError);
+  });
+});
+
+describe("flexible OpenRouter secret names", () => {
+  const KEY = "sk-or-v1-abcdef0123456789abcdef0123456789";
+  for (const name of ["OPENROUTER_API_KEY", "OPENROUTER_", "OPENROUTER_KEY", "OPENROUTER"]) {
+    it(`reads the key from ${name}`, () => {
+      const config = resolveChatProvider({ LOVABLE_API_KEY: "lov", [name]: KEY });
+      expect(config.kind).toBe("openrouter");
+      expect(config.key).toBe(KEY);
+    });
+  }
+
+  it("extracts the key when the secret has extra words around it", () => {
+    expect(resolveChatProvider({ OPENROUTER_: `کلید من:\n${KEY} ممنون` }).key).toBe(KEY);
+  });
+
+  it("explains clearly when no key exists", () => {
+    expect(() => resolveChatProvider({})).toThrow(AiConfigError);
+  });
+});
+
+describe("describeAiError", () => {
+  it("reports Lovable 402 as out of credits", () => {
+    expect(describeAiError({ statusCode: 402 }, "lovable")).toContain("اعتبار");
+  });
+  it("names OpenRouter on a bad key", () => {
+    expect(describeAiError({ statusCode: 401 }, "openrouter")).toContain("OpenRouter");
+  });
+  it("reports timeouts", () => {
+    expect(describeAiError({ name: "TimeoutError", message: "x" }, "openrouter")).toContain("طول کشید");
   });
 });
