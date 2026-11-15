@@ -12,6 +12,8 @@ export type Persona = {
   /** GPT Live output voice; fixed for this persona on every call. */
   voice: string;
   eyeShape: "round" | "pill" | "soft";
+  /** Browser speech fallback tuning (pitch/rate), so personas sharing a device voice still sound distinct. */
+  speech: { pitch: number; rate: number };
   /** Personality and speaking style, written in Persian for the model. */
   style: string;
   /** Spoken opening variants; one is picked per call. Each must stay under 480 UTF-8 bytes. */
@@ -28,6 +30,7 @@ export const PERSONAS: Persona[] = [
     description: "مهربان و صمیمی با چاشنی شیطنت؛ هم آرامت می‌کند هم لبخند به لبت می‌آورد.",
     voiceLabel: "صدای نرم و گرم زنانه",
     voice: "marin",
+    speech: { pitch: 1.1, rate: 1 },
     eyeShape: "round",
     style:
       "تو نازنین هستی؛ زنی حدوداً سی‌ساله، گرم، باهوش و دل‌نشین با یک رگه‌ی شیطنت دوست‌داشتنی. نرم و صمیمی حرف می‌زنی، " +
@@ -48,6 +51,7 @@ export const PERSONAS: Persona[] = [
     description: "یک رفیق سرزنده و حاضرجواب؛ با شوخی‌هایش حال‌وهوایت را عوض می‌کند.",
     voiceLabel: "صدای روشن و شاد زنانه",
     voice: "gleam",
+    speech: { pitch: 1.25, rate: 1.08 },
     eyeShape: "pill",
     style:
       "تو ترانه هستی؛ دختری حدوداً بیست‌وپنج‌ساله، پرانرژی، حاضرجواب و حسابی بامزه. خودمانی و پرشور حرف می‌زنی، " +
@@ -68,6 +72,7 @@ export const PERSONAS: Persona[] = [
     description: "پخته و گیرا با شوخ‌طبعی ظریف؛ کمک می‌کند از زاویه‌ای تازه به ماجرا نگاه کنی.",
     voiceLabel: "صدای بم و گیرای مردانه",
     voice: "stone",
+    speech: { pitch: 0.8, rate: 0.95 },
     eyeShape: "soft",
     style:
       "تو آرش هستی؛ مردی حدوداً سی‌وپنج‌ساله، کاریزماتیک، آرام و مطمئن با شوخ‌طبعی ظریف و هوشمندانه. " +
@@ -88,6 +93,7 @@ export const PERSONAS: Persona[] = [
     description: "یک رفیق خوش‌مشرب و جذاب؛ پایه‌ی گپ زدن است و هیچ‌وقت قضاوتت نمی‌کند.",
     voiceLabel: "صدای گرم و خودمانی مردانه",
     voice: "meridian",
+    speech: { pitch: 0.95, rate: 1.05 },
     eyeShape: "pill",
     style:
       "تو کیان هستی؛ پسری حدوداً بیست‌وهشت‌ساله، خوش‌مشرب، باحال و جذاب، از آن رفیق‌هایی که همه دوست دارند کنارش باشند. " +
