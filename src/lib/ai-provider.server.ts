@@ -112,8 +112,12 @@ export function describeAiError(error: unknown, kind?: ProviderKind): string {
   return "پاسخ کامل نشد. دوباره امتحان کنید.";
 }
 
-/** Free OpenRouter router, used as a backup whenever the chosen free model is busy or rate-limited. */
-export const OPENROUTER_FALLBACK_MODEL = "openrouter/free";
+/**
+ * Free OpenRouter models with natural Persian, tried in order when the chosen model is busy or
+ * rate-limited. The random `openrouter/free` router is avoided: some of its picks write broken Persian.
+ * OpenRouter accepts at most 3 models per request.
+ */
+export const OPENROUTER_FALLBACK_MODELS = ["nvidia/nemotron-3-ultra-550b-a55b:free", "baidu/ernie-5.5-flash-preview:free"];
 
 /**
  * Add OpenRouter's `models` fallback list to each request, so a rate-limited free model
@@ -124,8 +128,8 @@ export function withOpenRouterFallback(baseFetch: typeof fetch = fetch): typeof 
     if (typeof init?.body === "string") {
       try {
         const body = JSON.parse(init.body) as { model?: string; models?: string[] };
-        if (body.model && body.model !== OPENROUTER_FALLBACK_MODEL && !body.models) {
-          body.models = [body.model, OPENROUTER_FALLBACK_MODEL];
+        if (body.model && !body.models) {
+          body.models = [...new Set([body.model, ...OPENROUTER_FALLBACK_MODELS])].slice(0, 3);
           init = { ...init, body: JSON.stringify(body) };
         }
       } catch {

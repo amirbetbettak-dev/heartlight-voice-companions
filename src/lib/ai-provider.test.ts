@@ -4,7 +4,7 @@ import {
   AiConfigError,
   CHAT_MODEL,
   describeAiError,
-  OPENROUTER_FALLBACK_MODEL,
+  OPENROUTER_FALLBACK_MODELS,
   resolveChatProvider,
   withOpenRouterFallback,
 } from "./ai-provider.server";
@@ -85,13 +85,14 @@ describe("describeAiError unwraps retry errors", () => {
 });
 
 describe("OpenRouter fallback model", () => {
-  it("adds the free router as a backup after the chosen model", async () => {
+  it("tries the chosen model first, then the Persian-capable free backups (max 3)", async () => {
     let sent: { model?: string; models?: string[] } = {};
     const fake = (async (_input: RequestInfo | URL, init?: RequestInit) => {
       sent = JSON.parse(String(init?.body));
       return new Response("{}");
     }) as typeof fetch;
     await withOpenRouterFallback(fake)("https://x", { method: "POST", body: JSON.stringify({ model: "google/gemma-4-31b-it:free" }) });
-    expect(sent.models).toEqual(["google/gemma-4-31b-it:free", OPENROUTER_FALLBACK_MODEL]);
+    expect(sent.models).toEqual(["google/gemma-4-31b-it:free", ...OPENROUTER_FALLBACK_MODELS]);
+    expect(sent.models).toHaveLength(3);
   });
 });
