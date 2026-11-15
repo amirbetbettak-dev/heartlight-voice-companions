@@ -117,7 +117,7 @@ export function describeAiError(error: unknown, kind?: ProviderKind): string {
  * rate-limited. The random `openrouter/free` router is avoided: some of its picks write broken Persian.
  * OpenRouter accepts at most 3 models per request.
  */
-export const OPENROUTER_FALLBACK_MODELS = ["nvidia/nemotron-3-ultra-550b-a55b:free", "baidu/ernie-5.5-flash-preview:free"];
+export const OPENROUTER_FALLBACK_MODELS = ["baidu/ernie-5.5-flash-preview:free", "google/gemma-4-26b-a4b-it:free"];
 
 /**
  * Add OpenRouter's `models` fallback list to each request, so a rate-limited free model
