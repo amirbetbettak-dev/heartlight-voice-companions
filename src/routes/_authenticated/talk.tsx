@@ -167,6 +167,10 @@ function TalkView({
         chatRef.current?.clearError();
         return;
       }
+      if (spokenReply.current !== "none") {
+        spokenReply.current = "none";
+        speechFeed.current?.replyFailed();
+      }
       let message = "ارسال پیام ممکن نشد. دوباره امتحان کنید.";
       try {
         const parsed = JSON.parse(error.message) as { error?: string };
@@ -211,12 +215,13 @@ function TalkView({
   // ---------- Free voice mode (browser speech → /api/chat → browser voice) ----------
   const [speechSupported, setSpeechSupported] = useState(false);
   useEffect(() => setSpeechSupported(browserSpeechSupported()), []);
-  const awaitingSpokenReply = useRef(false);
+  // "sent": waiting for the chat to start; "busy": the reply is on its way.
+  const spokenReply = useRef<"none" | "sent" | "busy">("none");
   const speech = useSpeechChat({
     gender: persona.gender,
     tuning: persona.speech,
     onUtterance: (text) => {
-      awaitingSpokenReply.current = true;
+      spokenReply.current = "sent";
       sendChat(text, "voice");
     },
     onError: (message) => toast.error(message),
@@ -230,14 +235,16 @@ function TalkView({
   const lastMessage = chat.messages[chat.messages.length - 1];
   const lastText = lastMessage ? messageText(lastMessage) : "";
   useEffect(() => {
-    if (!speech.active || !awaitingSpokenReply.current) return;
+    if (!speech.active || spokenReply.current === "none") return;
+    if (chat.status === "submitted" || chat.status === "streaming") spokenReply.current = "busy";
+    if (spokenReply.current !== "busy") return;
     const done = chat.status === "ready" || chat.status === "error";
     const isNewReply = lastMessage?.role === "assistant" && lastMessage.id !== replyBaseline.current;
     if (isNewReply) {
       speechFeed.current.feedReply(lastMessage.id, lastText, done);
-      if (done) awaitingSpokenReply.current = false;
+      if (done) spokenReply.current = "none";
     } else if (done) {
-      awaitingSpokenReply.current = false;
+      spokenReply.current = "none";
       speechFeed.current.replyFailed();
     }
   }, [speech.active, chat.status, lastMessage?.id, lastMessage?.role, lastText]);
