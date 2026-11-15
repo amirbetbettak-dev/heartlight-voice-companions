@@ -2,7 +2,7 @@ import { useChat } from "@ai-sdk/react";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { DefaultChatTransport } from "ai";
-import { Keyboard, Loader2, Mic, MicOff, PhoneOff, Settings2, Volume2, AudioLines, SquarePen } from "lucide-react";
+import { Keyboard, Loader2, Mic, MicOff, PhoneOff, Settings2, Volume2, AudioLines, SquarePen, Hand } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -12,6 +12,7 @@ import { SettingsSheet, type SettingsView } from "@/components/companion/setting
 import { Button } from "@/components/ui/button";
 import { useAudioLevels } from "@/hooks/use-audio-levels";
 import { useLiveVoice, type LiveEvent } from "@/hooks/use-live-voice";
+import { browserSpeechSupported, useSpeechChat } from "@/hooks/use-speech-chat";
 import { supabase } from "@/integrations/supabase/client";
 import {
   companionQuery,
@@ -56,6 +57,17 @@ export const Route = createFileRoute("/_authenticated/talk")({
   },
   component: TalkPage,
 });
+
+function messageText(message: ChatMessage) {
+  return message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
+}
+
+function lastAssistantId(messages: ChatMessage[]) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]!.role === "assistant") return messages[index]!.id;
+  }
+  return null;
+}
 
 async function accessToken() {
   const { data } = await supabase.auth.getSession();
@@ -118,6 +130,10 @@ function TalkView({
   useEffect(() => () => clearTimeout(expressionTimer.current), []);
 
   // ---------- Text chat ----------
+  const messagesRef = useRef<ChatMessage[]>([]);
+  const chatRef = useRef<{ clearError: () => void } | null>(null);
+  // Last assistant message before the current request, so an old reply is never mistaken for the new one.
+  const replyBaseline = useRef<string | null>(null);
   const transport = useMemo(
     () =>
       new DefaultChatTransport<ChatMessage>({
@@ -125,8 +141,9 @@ function TalkView({
         prepareSendMessagesRequest: async ({ messages }) => {
           const last = messages[messages.length - 1];
           const text = last?.parts.map((part) => (part.type === "text" ? part.text : "")).join("") ?? "";
+          const source = last?.metadata?.source === "voice" ? "voice" : "text";
           return {
-            body: { text, conversationId },
+            body: { text, conversationId, source },
             headers: { Authorization: `Bearer ${await accessToken()}` },
           };
         },
@@ -143,6 +160,17 @@ function TalkView({
       void refreshMemoryFn({ data: {} }).catch(() => {});
     },
     onError: (error) => {
+      // A reply that already arrived in full is never followed by an error message.
+      const last = messagesRef.current[messagesRef.current.length - 1];
+      if (last?.role === "assistant" && last.id !== replyBaseline.current && messageText(last).trim()) {
+        console.warn("Ignoring chat error after a complete reply", error);
+        chatRef.current?.clearError();
+        return;
+      }
+      if (spokenReply.current !== "none") {
+        spokenReply.current = "none";
+        speechFeed.current?.replyFailed();
+      }
       let message = "ارسال پیام ممکن نشد. دوباره امتحان کنید.";
       try {
         const parsed = JSON.parse(error.message) as { error?: string };
@@ -153,6 +181,9 @@ function TalkView({
       toast.error(message);
     },
   });
+
+  messagesRef.current = chat.messages;
+  chatRef.current = chat;
 
   // Last-resort watchdog: if nothing arrives for a long stretch, stop waiting instead of spinning forever.
   const chatWaiting = chat.status === "submitted" || chat.status === "streaming";
@@ -171,13 +202,52 @@ function TalkView({
     return () => clearTimeout(timer);
   }, [chatWaiting, lastChatProgress]);
 
-  const sendText = useCallback(
-    (text: string) => {
+  const sendChat = useCallback(
+    (text: string, source: "text" | "voice") => {
       react(detectExpression(text));
-      void chat.sendMessage({ text, metadata: { source: "text", personaId: personaRef.current } });
+      replyBaseline.current = lastAssistantId(messagesRef.current);
+      void chat.sendMessage({ text, metadata: { source, personaId: personaRef.current } });
     },
     [chat, react],
   );
+  const sendText = useCallback((text: string) => sendChat(text, "text"), [sendChat]);
+
+  // ---------- Free voice mode (browser speech → /api/chat → browser voice) ----------
+  const [speechSupported, setSpeechSupported] = useState(false);
+  useEffect(() => setSpeechSupported(browserSpeechSupported()), []);
+  // "sent": waiting for the chat to start; "busy": the reply is on its way.
+  const spokenReply = useRef<"none" | "sent" | "busy">("none");
+  const speech = useSpeechChat({
+    gender: persona.gender,
+    tuning: persona.speech,
+    onUtterance: (text) => {
+      spokenReply.current = "sent";
+      sendChat(text, "voice");
+    },
+    onError: (message) => toast.error(message),
+    onNoPersianVoice: () =>
+      toast("این دستگاه صدای فارسی ندارد؛ پاسخ‌ها نوشته نمایش داده می‌شوند. برای شنیدن صدا، Microsoft Edge یا Chrome اندروید را امتحان کن.", {
+        duration: 8000,
+      }),
+  });
+  const speechFeed = useRef(speech);
+  speechFeed.current = speech;
+  const lastMessage = chat.messages[chat.messages.length - 1];
+  const lastText = lastMessage ? messageText(lastMessage) : "";
+  useEffect(() => {
+    if (!speech.active || spokenReply.current === "none") return;
+    if (chat.status === "submitted" || chat.status === "streaming") spokenReply.current = "busy";
+    if (spokenReply.current !== "busy") return;
+    const done = chat.status === "ready" || chat.status === "error";
+    const isNewReply = lastMessage?.role === "assistant" && lastMessage.id !== replyBaseline.current;
+    if (isNewReply) {
+      speechFeed.current.feedReply(lastMessage.id, lastText, done);
+      if (done) spokenReply.current = "none";
+    } else if (done) {
+      spokenReply.current = "none";
+      speechFeed.current.replyFailed();
+    }
+  }, [speech.active, chat.status, lastMessage?.id, lastMessage?.role, lastText]);
 
   // ---------- Voice call ----------
   const userTurn = useRef("");
@@ -261,6 +331,8 @@ function TalkView({
 
   const startCall = () => {
     setCaptions([]);
+    // Free browser voice first; the paid live call only where the browser has no speech recognition.
+    if (speechSupported && speech.start()) return;
     voice.start();
   };
 
@@ -269,6 +341,7 @@ function TalkView({
     setSettingsOpen(false);
     if (id === conversationId) return;
     if (inCall) voice.stop();
+    speech.stop();
     void navigate({ to: "/talk", search: { c: id } });
   };
 
@@ -276,6 +349,7 @@ function TalkView({
     setSettingsOpen(false);
     if (id === personaId) return;
     if (inCall) voice.stop();
+    speech.stop();
     try {
       await savePersona(id);
       queryClient.setQueryData(companionQuery.queryKey, (old) => (old ? { ...old, personaId: id } : old));
@@ -304,6 +378,7 @@ function TalkView({
 
   const signOut = async () => {
     voice.stop();
+    speech.stop();
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
@@ -313,23 +388,32 @@ function TalkView({
   // ---------- Face state ----------
   const chatBusy = chat.status === "submitted" || chat.status === "streaming";
   let faceState: FaceState = "idle";
-  if (voice.status === "connecting") faceState = "connecting";
+  if (speech.active) faceState = speech.status === "idle" ? "idle" : speech.status;
+  else if (voice.status === "connecting") faceState = "connecting";
   else if (voice.status === "connected") {
     faceState = assistantSpeaking ? "speaking" : backendThinking ? "thinking" : "listening";
   } else if (chat.status === "submitted") faceState = "thinking";
   else if (chat.status === "streaming") faceState = "speaking";
-  const textSpeaking = chat.status === "streaming" && chat.messages[chat.messages.length - 1]?.role === "assistant";
+  const textSpeaking = speech.active
+    ? speech.status === "speaking"
+    : chat.status === "streaming" && chat.messages[chat.messages.length - 1]?.role === "assistant";
 
   const statusLabel: Record<FaceState, string> = {
     idle: "دکمه‌ی میکروفون را بزن تا حرف بزنیم",
     connecting: "در حال اتصال…",
-    listening: userSpeaking ? "دارم گوش می‌دم…" : "می‌شنوم، بگو…",
+    listening: userSpeaking || (speech.active && speech.heard) ? "دارم گوش می‌دم…" : "می‌شنوم، بگو…",
     thinking: "دارم فکر می‌کنم…",
     speaking: `${persona.name} داره حرف می‌زنه`,
   };
-  const subtitle = inCall
+  let subtitle = inCall
     ? [...captions].reverse().find((caption) => caption.role === "assistant")?.text.slice(-160)
     : undefined;
+  if (speech.active) {
+    subtitle =
+      speech.status === "speaking" && lastMessage?.role === "assistant"
+        ? lastText.trim().slice(-160)
+        : speech.heard || undefined;
+  }
 
   return (
     <div data-persona={persona.id} className="flex h-dvh flex-col overflow-hidden bg-background bg-ambient lg:flex-row">
@@ -411,7 +495,29 @@ function TalkView({
               {voice.muted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
             </Button>
           )}
-          {inCall ? (
+          {speech.active ? (
+            <>
+              {speech.status === "speaking" && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="size-12 rounded-full"
+                  onClick={speech.interrupt}
+                  aria-label="حرفش را قطع کن و خودت بگو"
+                  title="حرفش را قطع کن و خودت بگو"
+                >
+                  <Hand className="size-5" />
+                </Button>
+              )}
+              <Button
+                size="lg"
+                onClick={speech.stop}
+                className="h-16 gap-2 rounded-full bg-destructive px-8 text-base text-destructive-foreground hover:bg-destructive/90"
+              >
+                <PhoneOff className="size-5" /> پایان گفت‌وگو
+              </Button>
+            </>
+          ) : inCall ? (
             <Button
               size="lg"
               onClick={voice.stop}

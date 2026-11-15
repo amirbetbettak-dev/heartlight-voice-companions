@@ -20,3 +20,6 @@
 - [x] Optional own AI key (OpenRouter / Groq / OpenAI) for text chat and memory
 - [ ] Add an own AI key — waits on the user providing one (OpenRouter, Groq or OpenAI)
 - [ ] First APK build on GitHub — waits on the project being connected to GitHub
+- [x] Text chat: no false "reply incomplete" error after a full reply; natural Tehrani Persian instructions; free backup models when the chosen one is busy
+- [x] Free voice mode with the browser's speech recognition + speech voice, connected to the same chat (no Lovable credits)
+- [ ] Real-microphone test of the free voice mode on a phone — needs the user's device

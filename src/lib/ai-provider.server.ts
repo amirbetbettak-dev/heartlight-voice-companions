@@ -100,13 +100,44 @@ export function describeAiError(error: unknown, kind?: ProviderKind): string {
       ? `موجودی حساب ${service} کافی نیست.`
       : "اعتبار هوش مصنوعی Lovable تمام شده است. یک کلید اختصاصی ثبت کنید یا اعتبار را شارژ کنید.";
   }
-  if (status === 429) return `${service} الان محدودیت درخواست دارد؛ چند لحظه بعد دوباره امتحان کنید.`;
+  if (status === 429) return `${service} الان شلوغ است؛ چند لحظه بعد دوباره امتحان کنید.`;
   if (status === 404 || status === 400) {
     return `${service} این مدل را نپذیرفت. مدل انتخابی (AI_MODEL) را بررسی کنید.`;
   }
   if (typeof status === "number" && status >= 500) return `سرویس ${service} موقتاً در دسترس نیست. کمی بعد امتحان کنید.`;
+  // Retry wrappers hide the real failure (status code) in `lastError`.
+  const last = (error as { lastError?: unknown })?.lastError;
+  if (last && last !== error) return describeAiError(last, kind);
   if (err?.cause && err.cause !== error) return describeAiError(err.cause, kind);
   return "پاسخ کامل نشد. دوباره امتحان کنید.";
+}
+
+/**
+ * Free OpenRouter models with natural Persian, tried in order when the chosen model is busy or
+ * rate-limited. The random `openrouter/free` router is avoided: some of its picks write broken Persian.
+ * OpenRouter accepts at most 3 models per request.
+ */
+export const OPENROUTER_FALLBACK_MODELS = ["baidu/ernie-5.5-flash-preview:free", "google/gemma-4-26b-a4b-it:free"];
+
+/**
+ * Add OpenRouter's `models` fallback list to each request, so a rate-limited free model
+ * (a common 429 on shared free pools) falls through to another free model instead of failing.
+ */
+export function withOpenRouterFallback(baseFetch: typeof fetch = fetch): typeof fetch {
+  return (input, init) => {
+    if (typeof init?.body === "string") {
+      try {
+        const body = JSON.parse(init.body) as { model?: string; models?: string[] };
+        if (body.model && !body.models) {
+          body.models = [...new Set([body.model, ...OPENROUTER_FALLBACK_MODELS])].slice(0, 3);
+          init = { ...init, body: JSON.stringify(body) };
+        }
+      } catch {
+        // Not JSON: send unchanged.
+      }
+    }
+    return baseFetch(input, init);
+  };
 }
 
 export const lovableReasoningOptions = {
@@ -140,6 +171,7 @@ export function chatModel(config: ChatProviderConfig, fetchImpl?: typeof fetch) 
       config.kind === "openrouter"
         ? { "HTTP-Referer": "https://heartlight-voice-companions.lovable.app", "X-Title": "Hamdam" }
         : {},
+    ...(config.kind === "openrouter" ? { fetch: withOpenRouterFallback() } : {}),
   });
   return { model: provider.chat(config.model) as LanguageModel, providerOptions: {} };
 }
