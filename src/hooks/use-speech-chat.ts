@@ -62,6 +62,7 @@ export function useSpeechChat(options: Options) {
   const generation = useRef(0);
   const reply = useRef<{ id: string; offset: number; done: boolean } | null>(null);
   const noVoiceNoticed = useRef(false);
+  const ignoredReply = useRef<string | null>(null);
 
   const setStatus = useCallback((next: SpeechStatus) => {
     statusRef.current = next;
@@ -213,7 +214,7 @@ export function useSpeechChat(options: Options) {
   /** Feed the streaming assistant reply; complete sentences are spoken right away. */
   const feedReply = useCallback(
     (id: string, text: string, done: boolean) => {
-      if (!active.current) return;
+      if (!active.current || ignoredReply.current === id) return;
       if (reply.current?.id !== id) reply.current = { id, offset: 0, done: false };
       const state = reply.current;
       const { speak, consumed } = takeSpeakable(text.slice(state.offset), done);
@@ -250,6 +251,8 @@ export function useSpeechChat(options: Options) {
   const interrupt = useCallback(() => {
     if (!active.current) return;
     stopSpeaking();
+    // The rest of the interrupted reply is not spoken, even if it is still streaming in.
+    ignoredReply.current = reply.current?.id ?? null;
     reply.current = null;
     listen();
   }, [listen, stopSpeaking]);
