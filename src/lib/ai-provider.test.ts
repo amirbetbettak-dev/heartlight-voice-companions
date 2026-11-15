@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { AiConfigError, CHAT_MODEL, describeAiError, resolveChatProvider } from "./ai-provider.server";
+import {
+  AiConfigError,
+  CHAT_MODEL,
+  describeAiError,
+  OPENROUTER_FALLBACK_MODEL,
+  resolveChatProvider,
+  withOpenRouterFallback,
+} from "./ai-provider.server";
 
 describe("resolveChatProvider", () => {
   it("uses Lovable AI when no custom key is set", () => {
@@ -67,5 +74,24 @@ describe("describeAiError", () => {
   });
   it("reports timeouts", () => {
     expect(describeAiError({ name: "TimeoutError", message: "x" }, "openrouter")).toContain("طول کشید");
+  });
+});
+
+describe("describeAiError unwraps retry errors", () => {
+  it("reports a rate limit hidden inside a retry error", () => {
+    const retry = { name: "AI_RetryError", message: "Failed after 2 attempts", lastError: { statusCode: 429 } };
+    expect(describeAiError(retry, "openrouter")).toContain("شلوغ");
+  });
+});
+
+describe("OpenRouter fallback model", () => {
+  it("adds the free router as a backup after the chosen model", async () => {
+    let sent: { model?: string; models?: string[] } = {};
+    const fake = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      sent = JSON.parse(String(init?.body));
+      return new Response("{}");
+    }) as typeof fetch;
+    await withOpenRouterFallback(fake)("https://x", { method: "POST", body: JSON.stringify({ model: "google/gemma-4-31b-it:free" }) });
+    expect(sent.models).toEqual(["google/gemma-4-31b-it:free", OPENROUTER_FALLBACK_MODEL]);
   });
 });

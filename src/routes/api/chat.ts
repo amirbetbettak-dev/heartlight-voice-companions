@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { streamText } from "ai";
+import { createUIMessageStreamResponse, streamText, type UIMessageChunk } from "ai";
 import { z } from "zod";
 
 import {
@@ -24,7 +24,10 @@ import { bearerToken, getUserClient, UnauthorizedError } from "@/lib/supabase-us
 const bodySchema = z.object({
   text: z.string().trim().min(1).max(4000),
   conversationId: z.string().uuid(),
+  source: z.enum(["text", "voice"]).optional(),
 });
+
+const EMPTY_REPLY_ERROR = "پاسخی نیامد. دوباره امتحان کنید.";
 
 const CHAT_FIRST_CHUNK_TIMEOUT_MS = 90_000;
 const CHAT_CHUNK_TIMEOUT_MS = 45_000;
@@ -45,6 +48,7 @@ async function handleChat(request: Request) {
   if (!parsed.success) return jsonError(400, "پیام نامعتبر است.");
   const { supabase, userId } = auth;
   const { conversationId } = parsed.data;
+  const source = parsed.data.source ?? "text";
 
   // Resolve the AI service before saving anything, so a missing key fails fast with a clear message.
   let provider: ChatProviderConfig;
@@ -69,7 +73,7 @@ async function handleChat(request: Request) {
     role: "user",
     content: parsed.data.text,
     persona_id: persona.id,
-    source: "text",
+    source,
   });
   if (userInsert.error) {
     console.error("Saving user message failed", userInsert.error);
@@ -92,29 +96,59 @@ async function handleChat(request: Request) {
     providerOptions,
   });
 
-  const response = result.toUIMessageStreamResponse({
-    sendReasoning: false,
-    onError: (error) => {
-      console.error("Chat stream failed", provider.kind, error);
-      return describeAiError(error, provider.kind);
-    },
-    onFinish: async ({ responseMessage }) => {
-      const text = responseMessage.parts
-        .map((part) => (part.type === "text" ? part.text : ""))
-        .join("")
-        .trim();
-      if (!text) return;
-      const saved = await supabase.from("messages").insert({
-        user_id: userId,
-        conversation_id: conversationId,
-        role: "assistant",
-        content: text,
-        persona_id: persona.id,
-        source: "text",
-      });
-      if (saved.error) console.error("Saving assistant message failed", saved.error);
-    },
-  });
+  let replyText = "";
+  let finished = false;
+  let failed = false;
+  let saved = false;
+  const saveReply = async () => {
+    const text = replyText.trim();
+    if (saved || !text) return;
+    saved = true;
+    const insert = await supabase.from("messages").insert({
+      user_id: userId,
+      conversation_id: conversationId,
+      role: "assistant",
+      content: text,
+      persona_id: persona.id,
+      source,
+    });
+    if (insert.error) console.error("Saving assistant message failed", insert.error);
+  };
+
+  // Once reply text has arrived, a late hiccup from the AI service (a dropped connection or a
+  // trailing error event) must not surface as an error: drop it and finish the stream cleanly.
+  const safeStream = result
+    .toUIMessageStream({
+      sendReasoning: false,
+      onError: (error) => {
+        console.error("Chat stream failed", provider.kind, error);
+        return describeAiError(error, provider.kind);
+      },
+    })
+    .pipeThrough(
+      new TransformStream<UIMessageChunk, UIMessageChunk>({
+        transform(chunk, controller) {
+          if (chunk.type === "text-delta") replyText += chunk.delta;
+          if (chunk.type === "error") {
+            if (replyText.trim()) {
+              console.warn("Ignoring AI error after a complete reply", chunk.errorText);
+              return;
+            }
+            failed = true;
+          }
+          if (chunk.type === "finish") {
+            finished = true;
+            if (!replyText.trim() && !failed) controller.enqueue({ type: "error", errorText: EMPTY_REPLY_ERROR });
+          }
+          controller.enqueue(chunk);
+        },
+        async flush(controller) {
+          if (replyText.trim() && !finished) controller.enqueue({ type: "finish", finishReason: "stop" });
+          await saveReply();
+        },
+      }),
+    );
+  const response = createUIMessageStreamResponse({ stream: safeStream });
   // The run-id header only exists on Lovable AI; waiting for it with another service would hang forever.
   return provider.kind === "lovable"
     ? withLovableAiGatewayRunIdHeader(response, runIdFetch)
