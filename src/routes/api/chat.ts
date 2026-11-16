@@ -87,7 +87,7 @@ async function handleChat(request: Request) {
   );
   const result = streamText({
     model,
-    instructions: textInstructions(persona, context.memory),
+    instructions: textInstructions(persona, context.memory, source),
     messages: [...toModelMessages(context.history), { role: "user", content: parsed.data.text }],
     abortSignal: request.signal,
     // Inactivity limits, not a total deadline: give up only when the service goes silent.
