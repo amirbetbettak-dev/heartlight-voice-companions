@@ -14,6 +14,8 @@ export type Persona = {
   eyeShape: "round" | "pill" | "soft";
   /** Browser speech fallback tuning (pitch/rate), so personas sharing a device voice still sound distinct. */
   speech: { pitch: number; rate: number };
+  /** Natural Persian voice for the free voice mode (Edge neural voice + prosody); fixed per persona. */
+  tts: { voice: "fa-IR-DilaraNeural" | "fa-IR-FaridNeural"; pitch: string; rate: string };
   /** Personality and speaking style, written in Persian for the model. */
   style: string;
   /** Spoken opening variants; one is picked per call. Each must stay under 480 UTF-8 bytes. */
@@ -31,6 +33,7 @@ export const PERSONAS: Persona[] = [
     voiceLabel: "صدای نرم و گرم زنانه",
     voice: "marin",
     speech: { pitch: 1.1, rate: 1 },
+    tts: { voice: "fa-IR-DilaraNeural", pitch: "+0Hz", rate: "+0%" },
     eyeShape: "round",
     style:
       "تو نازنین هستی؛ زنی حدوداً سی‌ساله، گرم، باهوش و دل‌نشین با یک رگه‌ی شیطنت دوست‌داشتنی. نرم و صمیمی حرف می‌زنی، " +
@@ -52,6 +55,7 @@ export const PERSONAS: Persona[] = [
     voiceLabel: "صدای روشن و شاد زنانه",
     voice: "gleam",
     speech: { pitch: 1.25, rate: 1.08 },
+    tts: { voice: "fa-IR-DilaraNeural", pitch: "+22Hz", rate: "+8%" },
     eyeShape: "pill",
     style:
       "تو ترانه هستی؛ دختری حدوداً بیست‌وپنج‌ساله، پرانرژی، حاضرجواب و حسابی بامزه. خودمانی و پرشور حرف می‌زنی، " +
@@ -73,6 +77,7 @@ export const PERSONAS: Persona[] = [
     voiceLabel: "صدای بم و گیرای مردانه",
     voice: "stone",
     speech: { pitch: 0.8, rate: 0.95 },
+    tts: { voice: "fa-IR-FaridNeural", pitch: "-12Hz", rate: "-4%" },
     eyeShape: "soft",
     style:
       "تو آرش هستی؛ مردی حدوداً سی‌وپنج‌ساله، کاریزماتیک، آرام و مطمئن با شوخ‌طبعی ظریف و هوشمندانه. " +
@@ -94,6 +99,7 @@ export const PERSONAS: Persona[] = [
     voiceLabel: "صدای گرم و خودمانی مردانه",
     voice: "meridian",
     speech: { pitch: 0.95, rate: 1.05 },
+    tts: { voice: "fa-IR-FaridNeural", pitch: "+4Hz", rate: "+7%" },
     eyeShape: "pill",
     style:
       "تو کیان هستی؛ پسری حدوداً بیست‌وهشت‌ساله، خوش‌مشرب، باحال و جذاب، از آن رفیق‌هایی که همه دوست دارند کنارش باشند. " +
