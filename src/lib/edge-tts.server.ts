@@ -1,6 +1,6 @@
 // Server-only: natural Persian speech from Microsoft Edge's free "Read aloud" neural voices.
 // Opens one short WebSocket per sentence and returns the finished MP3.
-import { EDGE_TRUSTED_CLIENT_TOKEN, edgeSecMsGec } from "@/lib/edge-tts-token";
+import { EDGE_TRUSTED_CLIENT_TOKEN, edgeSecMsGec } from "./edge-tts-token";
 
 const CHROMIUM_FULL_VERSION = "143.0.3650.75";
 const CHROMIUM_MAJOR = CHROMIUM_FULL_VERSION.split(".")[0];
