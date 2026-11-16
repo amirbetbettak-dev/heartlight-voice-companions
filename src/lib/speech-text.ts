@@ -11,6 +11,7 @@ export function cleanForSpeech(text: string) {
     .trim();
 }
 
+const LONG_CLAUSE = 110;
 const SENTENCE_END = /[.!?؟…\n]+["'»)]*\s*/g;
 
 /**
@@ -22,7 +23,13 @@ export function takeSpeakable(pending: string, done: boolean): { speak: string; 
   if (done) return { speak: cleanForSpeech(pending), consumed: pending.length };
   let end = 0;
   for (const match of pending.matchAll(SENTENCE_END)) end = (match.index ?? 0) + match[0].length;
-  if (end === 0) return { speak: "", consumed: 0 };
+  if (end === 0) {
+    // A long sentence still streaming in: start speaking at its last comma so the voice isn't kept waiting.
+    if (pending.length < LONG_CLAUSE) return { speak: "", consumed: 0 };
+    const comma = Math.max(pending.lastIndexOf("،"), pending.lastIndexOf(","), pending.lastIndexOf("؛"));
+    if (comma < 20) return { speak: "", consumed: 0 };
+    return { speak: cleanForSpeech(pending.slice(0, comma + 1)), consumed: comma + 1 };
+  }
   return { speak: cleanForSpeech(pending.slice(0, end)), consumed: end };
 }
 
