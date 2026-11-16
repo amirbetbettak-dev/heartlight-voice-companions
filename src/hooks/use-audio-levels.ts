@@ -6,10 +6,17 @@ export type AudioLevels = { speaker: number; mic: number };
  * Tracks loudness (0..1) of the companion's voice (the call's <audio> element stream) and the
  * user's microphone. Values live in a ref so the face can read them every frame without re-rendering.
  */
-export function useAudioLevels(audioRef: RefObject<HTMLAudioElement | null>, micStream: MediaStream | null) {
+export function useAudioLevels(
+  audioRef: RefObject<HTMLAudioElement | null>,
+  micStream: MediaStream | null,
+  /** Extra voice source measured elsewhere (the free voice mode's player). */
+  extraSpeaker?: () => number,
+) {
   const levels = useRef<AudioLevels>({ speaker: 0, mic: 0 });
   const micRef = useRef(micStream);
   micRef.current = micStream;
+  const extraRef = useRef(extraSpeaker);
+  extraRef.current = extraSpeaker;
 
   useEffect(() => {
     let context: AudioContext | null = null;
@@ -62,7 +69,7 @@ export function useAudioLevels(audioRef: RefObject<HTMLAudioElement | null>, mic
     function tick() {
       const element = audioRef.current;
       const speakerStream = element?.srcObject instanceof MediaStream ? element.srcObject : null;
-      const speaker = read("speaker", speakerStream);
+      const speaker = Math.max(read("speaker", speakerStream), extraRef.current?.() ?? 0);
       const mic = read("mic", micRef.current?.active ? micRef.current : null);
       const previous = levels.current;
       levels.current = {

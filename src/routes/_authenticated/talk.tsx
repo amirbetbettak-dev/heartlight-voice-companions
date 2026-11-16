@@ -218,17 +218,17 @@ function TalkView({
   // "sent": waiting for the chat to start; "busy": the reply is on its way.
   const spokenReply = useRef<"none" | "sent" | "busy">("none");
   const speech = useSpeechChat({
+    personaId,
     gender: persona.gender,
     tuning: persona.speech,
+    getToken: accessToken,
     onUtterance: (text) => {
       spokenReply.current = "sent";
       sendChat(text, "voice");
     },
     onError: (message) => toast.error(message),
-    onNoPersianVoice: () =>
-      toast("این دستگاه صدای فارسی ندارد؛ پاسخ‌ها نوشته نمایش داده می‌شوند. برای شنیدن صدا، Microsoft Edge یا Chrome اندروید را امتحان کن.", {
-        duration: 8000,
-      }),
+    onNoVoice: () =>
+      toast("صدای پاسخ الان در دسترس نیست؛ جواب‌ها نوشته نمایش داده می‌شوند.", { duration: 6000 }),
   });
   const speechFeed = useRef(speech);
   speechFeed.current = speech;
@@ -308,7 +308,7 @@ function TalkView({
     onEvent: onVoiceEvent,
     getStartPayload: async () => ({ token: await accessToken(), conversationId }),
   });
-  const levels = useAudioLevels(voice.audioRef, micStream);
+  const levels = useAudioLevels(voice.audioRef, micStream, speech.speakerLevel);
   const inCall = voice.status === "connecting" || voice.status === "connected" || voice.status === "stopping";
 
   useEffect(() => {
@@ -395,7 +395,7 @@ function TalkView({
   } else if (chat.status === "submitted") faceState = "thinking";
   else if (chat.status === "streaming") faceState = "speaking";
   const textSpeaking = speech.active
-    ? speech.status === "speaking"
+    ? speech.status === "speaking" && !speech.playingAudio
     : chat.status === "streaming" && chat.messages[chat.messages.length - 1]?.role === "assistant";
 
   const statusLabel: Record<FaceState, string> = {
