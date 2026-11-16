@@ -12,6 +12,12 @@ describe("takeSpeakable", () => {
     expect(speak).toBe("سلام عزیزم! امروز چطور بود؟");
     expect(pending.slice(consumed)).toBe("بگو");
   });
+  it("starts a long unfinished sentence at its last comma", () => {
+    const pending = "راستش رو بخوای من همیشه فکر می‌کردم آدم‌ها وقتی خسته‌ان بیشتر از هر چیزی یه گوش شنوا می‌خوان، نه نصیحت و راه‌حل و این حرفا، و تو هم";
+    const { speak, consumed } = takeSpeakable(pending, false);
+    expect(speak.endsWith("این حرفا،")).toBe(true);
+    expect(pending.slice(consumed)).toBe(" و تو هم");
+  });
   it("speaks the remainder when the reply is done", () => {
     expect(takeSpeakable("بگو ببینم", true)).toEqual({ speak: "بگو ببینم", consumed: 9 });
   });

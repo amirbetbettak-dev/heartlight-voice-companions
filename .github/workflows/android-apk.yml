@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -29,24 +32,35 @@ jobs:
           if [ ! -d android ]; then npx cap add android; fi
           npx cap sync android
 
-      - name: Allow microphone (voice calls)
+      - name: Icon, launch screen and microphone permissions
+        run: bash scripts/prepare-android.sh
+
+      # Every build is signed with the same key, so a new APK installs over the old one.
+      - name: Use the shared signing key
         run: |
-          MANIFEST=android/app/src/main/AndroidManifest.xml
-          for PERM in RECORD_AUDIO MODIFY_AUDIO_SETTINGS; do
-            grep -q "android.permission.$PERM" "$MANIFEST" ||               sed -i "s#</manifest>#    <uses-permission android:name="android.permission.$PERM" />
-</manifest>#" "$MANIFEST"
-          done
-          cat "$MANIFEST"
+          mkdir -p ~/.android
+          cp android-overrides/debug.keystore ~/.android/debug.keystore
 
       - name: Build APK
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../hamdam.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: hamdam-android-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: hamdam.apk
           if-no-files-found: error
+
+      # A direct download link: https://github.com/<owner>/<repo>/releases/latest/download/hamdam.apk
+      - name: Publish as the latest release
+        if: github.ref_name == github.event.repository.default_branch
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: همدم — نسخه‌ی اندروید ${{ github.run_number }}
+          files: hamdam.apk
+          make_latest: true
