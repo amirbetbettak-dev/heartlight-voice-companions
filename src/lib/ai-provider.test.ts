@@ -92,8 +92,8 @@ describe("OpenRouter fallback model", () => {
       sent = JSON.parse(String(init?.body));
       return new Response("{}");
     }) as typeof fetch;
-    await withOpenRouterFallback(fake)("https://x", { method: "POST", body: JSON.stringify({ model: "google/gemma-4-31b-it:free" }) });
-    expect(sent.models).toEqual(["google/gemma-4-31b-it:free", ...OPENROUTER_FALLBACK_MODELS]);
+    await withOpenRouterFallback(fake)("https://x", { method: "POST", body: JSON.stringify({ model: "particle-ai/particle-1:free" }) });
+    expect(sent.models).toEqual(["particle-ai/particle-1:free", ...OPENROUTER_FALLBACK_MODELS]);
     expect(sent.models).toHaveLength(3);
   });
 });
