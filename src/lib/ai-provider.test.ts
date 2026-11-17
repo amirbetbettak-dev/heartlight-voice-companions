@@ -21,6 +21,7 @@ describe("resolveChatProvider", () => {
     expect(config.kind).toBe("openrouter");
     expect(config.baseURL).toBe("https://openrouter.ai/api/v1");
     expect(config.key).toBe("sk-or-v1-or0123456789abcdef");
+    expect(config.model).toBe("particle-ai/particle-1:free");
   });
 
   it("uses Groq when GROQ_API_KEY is set", () => {
