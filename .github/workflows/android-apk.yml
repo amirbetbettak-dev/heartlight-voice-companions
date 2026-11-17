@@ -32,7 +32,9 @@ jobs:
           if [ ! -d android ]; then npx cap add android; fi
           npx cap sync android
 
-      - name: Icon, launch screen and microphone permissions
+      - name: Icon, launch screen, microphone permissions and version number
+        env:
+          APP_VERSION_CODE: ${{ github.run_number }}
         run: bash scripts/prepare-android.sh
 
       # Every build is signed with the same key, so a new APK installs over the old one.
