@@ -23,4 +23,9 @@ done
 grep -q "android.speech.RecognitionService" "$MANIFEST" ||
   sed -i "s#</manifest>#    <queries>\n        <intent>\n            <action android:name=\"android.speech.RecognitionService\" />\n        </intent>\n    </queries>\n</manifest>#" "$MANIFEST"
 
+# Each build gets a higher version number (GitHub run number), so Android accepts it as an update.
+if [ -n "${APP_VERSION_CODE:-}" ]; then
+  sed -i -E "s/versionCode [0-9]+/versionCode $APP_VERSION_CODE/; s/versionName \"[^\"]*\"/versionName \"1.$APP_VERSION_CODE\"/" android/app/build.gradle
+fi
+
 echo "Android project prepared."
