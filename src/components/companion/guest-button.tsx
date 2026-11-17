@@ -1,3 +1,4 @@
+import { Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -21,12 +22,15 @@ export function GuestButton({ className }: { className?: string }) {
   return (
     <Button
       type="button"
-      variant="ghost"
       onClick={enter}
       disabled={pending}
-      className={cn("h-11 rounded-full text-sm text-muted-foreground hover:bg-transparent hover:text-foreground", className)}
+      className={cn(
+        "h-14 gap-2 rounded-full bg-glow text-base font-bold text-glow-foreground shadow-[0_0_40px_-8px_var(--glow)] transition-[background,box-shadow] duration-[2000ms] hover:bg-glow/90",
+        className,
+      )}
     >
-      {pending ? "در حال ورود…" : "ورود مهمان"}
+      {pending ? <Loader2 className="size-5 animate-spin" /> : <Sparkles className="size-5" />}
+      {pending ? "در حال ورود…" : "ورود سریع مهمان"}
     </Button>
   );
 }

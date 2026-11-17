@@ -3,7 +3,6 @@ import { Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { HamdamLogo } from "@/components/brand/hamdam-logo";
-import { GoogleButton } from "@/components/companion/google-button";
 import { GuestButton } from "@/components/companion/guest-button";
 import { PhoneSignIn } from "@/components/companion/phone-sign-in";
 import { Button } from "@/components/ui/button";
@@ -75,15 +74,14 @@ function Landing() {
             <PhoneSignIn onBack={() => setPhoneMode(false)} />
           ) : (
             <>
-              <GoogleButton className="w-full" />
-              <Button
-                variant="outline"
-                onClick={() => setPhoneMode(true)}
-                className="h-12 w-full gap-2 rounded-full border-border bg-card/40 text-[15px] backdrop-blur hover:bg-card/70"
-              >
-                <Smartphone className="size-[18px]" /> ورود با شماره موبایل
-              </Button>
               <GuestButton className="w-full" />
+              <Button
+                variant="ghost"
+                onClick={() => setPhoneMode(true)}
+                className="h-11 w-full gap-2 rounded-full text-sm text-muted-foreground hover:bg-transparent hover:text-foreground"
+              >
+                <Smartphone className="size-4" /> ورود با شماره موبایل
+              </Button>
             </>
           )}
         </div>
