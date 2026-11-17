@@ -23,6 +23,7 @@
 - [x] Text chat: no false "reply incomplete" error after a full reply; natural Tehrani Persian instructions; free backup models when the chosen one is busy
 - [x] Free voice mode with the browser's speech recognition + speech voice, connected to the same chat (no Lovable credits)
 - [ ] Real-microphone test of the free voice mode on a phone — needs the user's device
-- [ ] Personal installable app with no Lovable traces: remove the Google button (it opens an outside Lovable page), make guest sign-in the default and fast, hide the Lovable badge
-- [ ] Much stronger warm Tehrani colloquial Persian: slang/phrase dictionary + sample chats per persona, ban bookish/Afghan/machine-translated wording; best free OpenRouter model for colloquial Persian
-- [ ] Independent Android package id (ir.hamdam.companion) and updated GitHub APK build
+- [x] Personal installable app: Google button removed, one-tap guest entry is the main button, Hamdam icon replaces the old site icon
+- [ ] Hide the small "Edit with Lovable" badge — needs a Pro plan
+- [x] Much stronger warm Tehrani colloquial Persian: slang/phrase dictionary + sample chats per persona, ban bookish/Afghan/machine-translated wording; best free OpenRouter model for colloquial Persian
+- [x] Independent Android package id (ir.hamdam.companion) and updated GitHub APK build
